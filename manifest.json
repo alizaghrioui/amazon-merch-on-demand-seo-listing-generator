@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "MERCH PRO Listing Studio",
+  "version": "1.1.77",
+  "description": "Generate policy-aware Merch listings from merch.amazon.com and fill the product-detail fields.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*",
+    "https://merch.amazon.com/*",
+    "https://zme-caps.amazon.com/*",
+    "https://*.media-amazon.com/*",
+    "https://*.ssl-images-amazon.com/*",
+    "https://api.openai.com/*",
+    "https://codecraftapi.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "MERCH PRO \u00b7 AI Settings",
+    "default_popup": "panel.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://amazon.com/*",
+        "https://www.amazon.com/*",
+        "https://merch.amazon.com/*"
+      ],
+      "js": [
+        "content.js"
+      ]
+    }
+  ],
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

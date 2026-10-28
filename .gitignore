@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.log
+node_modules/
+coverage/
+dist/
+build/

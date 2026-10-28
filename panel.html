@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><title>MERCH PRO · AI Settings</title><link rel="stylesheet" href="panel.css" /></head>
+<body>
+  <header><img class="mark" src="icons/icon-48.png" alt="MERCH PRO logo" width="38" height="38" /><div><strong>MERCH PRO</strong><small>LISTING STUDIO</small></div><span class="version">v1.1.77</span></header>
+  <main><span class="eyebrow">YOUR LISTING COPILOT</span><h1>Choose your AI.</h1><p class="intro">One design. A complete, professional listing.</p>
+    <form id="apiForm">
+      <label for="aiProvider"><span class="step">01</span> AI provider</label>
+      <select id="aiProvider" disabled><option value="gemini">Google Gemini</option><option value="openai">OpenAI</option><option value="codecraft">CodeCraft API</option></select>
+      <label for="aiModel">Model <span class="optional">Auto Fast or Auto Pro</span></label>
+      <select id="aiModel" disabled></select>
+      <p id="modelHint" class="hint">Auto Fast prioritizes speed. Auto Pro prioritizes quality.</p>
+      <label for="apiKey"><span class="step">02</span> Primary API key <span id="providerBadge">GEMINI</span></label>
+      <div class="key-wrap"><input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your primary API key" /><button id="toggleKey" type="button" aria-label="Show primary API key">Show</button></div>
+      <label for="apiKey2">Backup API key <span class="optional">optional · same provider</span></label>
+      <div class="key-wrap"><input id="apiKey2" type="password" autocomplete="off" spellcheck="false" placeholder="Used automatically if the primary hits quota" /><button id="toggleKey2" type="button" aria-label="Show backup API key">Show</button></div>
+      <div class="links"><a id="keyLink" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Get your Gemini API key ↗</a><button id="refreshModels" type="button">Refresh models</button></div>
+      <button id="testApi" class="test-api" type="button">Test API keys</button>
+      <button id="saveKey" class="save" type="submit" disabled>Save AI settings <span>↗</span></button>
+      <p id="status" role="status" aria-live="polite"></p>
+    </form>
+  </main><footer><span class="dot"></span> Generate directly on your Merch page</footer>
+  <script src="ai-models.js"></script><script src="panel.js"></script>
+</body></html>
