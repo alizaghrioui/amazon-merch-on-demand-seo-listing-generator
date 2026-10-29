@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MERCH PRO Listing Studio",
-  "version": "1.1.77",
+  "version": "1.1.78",
   "description": "Generate policy-aware Merch listings from merch.amazon.com and fill the product-detail fields.",
   "permissions": [
     "activeTab",

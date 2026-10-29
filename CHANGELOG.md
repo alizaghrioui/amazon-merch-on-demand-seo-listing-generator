@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.78
+
+- Add a standalone Amazon Listing Keyword Optimizer extension with local keyword projects, listing analysis, autocomplete, visible-result extraction, and sequential indexing checks.
+
 ## 1.1.77
 - Remove punctuation and symbol characters from generated listing fields and keywords, replacing them with spaces so words remain readable.
 - Rebuild the Description from the cleaned bullets and keep artwork-text validation punctuation-insensitive.
