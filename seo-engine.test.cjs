@@ -75,8 +75,8 @@ test('keeps a long artwork title intact and flags Amazon limit for manual shorte
 
 test('two-stage background generation retains planner and report with one image analysis and one listing request', async () => {
   const c=runtime(true);let calls=0;
-  c.requestCodeCraftWithBackup=async(model,key,backup,image,prompt)=>{calls++;if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')){assert(image?.data);return JSON.stringify(intelligenceFixture(fixture()));}assert.equal(image,null);assert(prompt.includes('DESIGN_INTELLIGENCE_LISTING_STAGE'));return JSON.stringify(fixture());};
-  const result=await c.generateListingAttempt({sourceName:'Maine_Coon.png',extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'codecraft',aiModel:'test-vision',codecraftApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{calls++;if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')){assert(image?.data);return JSON.stringify(intelligenceFixture(fixture()));}assert.equal(image,null);assert(prompt.includes('DESIGN_INTELLIGENCE_LISTING_STAGE'));return JSON.stringify(fixture());};
+  const result=await c.generateListingAttempt({sourceName:'Maine_Coon.png',extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
   assert.equal(calls,2);
   assert.equal(result.seoPlan.primary,'Maine Coon');
   assert(result.seoReport);
@@ -84,6 +84,17 @@ test('two-stage background generation retains planner and report with one image 
   assert(result.seoReport.issues.some(item=>item.code==='keyword-evidence'));
   assert.equal(result.description,result.bullet1+' '+result.bullet2);
   assert(!result.seoReport.issues.some(item=>item.severity==='error'));
+});
+
+test('a retry includes its previous non-policy error in the listing prompt',async()=>{
+  const c=runtime(true),draft=fixture();let listingPrompt='';
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{
+    if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS'))return JSON.stringify(intelligenceFixture(draft));
+    listingPrompt=prompt;return JSON.stringify(draft);
+  };
+  await c.generateListingAttempt({retryError:'AI omitted the brand field',retryWasBlocked:false,imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  assert(listingPrompt.includes('AI omitted the brand field'));
+  assert(listingPrompt.includes('Correct the relevant issue'));
 });
 
 test('saved-design artwork uses the Amazon session and reports fetch failures clearly', async () => {
@@ -105,34 +116,45 @@ test('saved-design artwork uses the Amazon session and reports fetch failures cl
 test('Costume written on artwork survives title assembly and validation', async () => {
   const c=runtime(true), draft=fixture();
   draft.analysis.artworkText='Cat Costume';draft.analysis.textConfidence='clear';
-  c.requestCodeCraftWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intelligenceFixture(draft):draft);
-  const result=await c.generateListingAttempt({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'codecraft',aiModel:'test-vision',codecraftApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intelligenceFixture(draft):draft);
+  const result=await c.generateListingAttempt({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
   assert(result.title.startsWith('Cat Costume'));
   assert(!/costume/i.test(result.brand+' '+result.bullet1+' '+result.bullet2));
 });
 
 test('field repair reuses visual analysis rather than making another image call', async()=>{
   const c=runtime(true),draft=fixture();let imageCalls=0,copyCalls=0;
-  c.requestCodeCraftWithBackup=async(model,key,backup,image,prompt)=>{
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{
     if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')){imageCalls++;assert(image);return JSON.stringify(intelligenceFixture(draft));}
     copyCalls++;assert.equal(image,null);
     return JSON.stringify(copyCalls===1?{...draft,bullet1:'Too short.'}:{bullet1:draft.bullet1});
   };
-  const result=await c.generateListingFresh({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'codecraft',aiModel:'test-vision',codecraftApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
+  const result=await c.generateListingFresh({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
   assert.equal(imageCalls,1);assert.equal(copyCalls,2);assert.equal(result.bullet1,c.MerchProPrompt.cleanListingText(draft.bullet1));
 });
 
 test('blocked Stage 1 stops without generating a listing',async()=>{
-  const c=runtime(true);let calls=0;c.requestCodeCraftWithBackup=async()=>{calls++;return JSON.stringify({blocked:true,blockReason:'Restricted design'});};
-  const result=await c.generateListingFresh({imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'codecraft',aiModel:'test-vision',codecraftApiKey:'test-only'});
+  const c=runtime(true);let calls=0;c.requestOpenAIWithBackup=async()=>{calls++;return JSON.stringify({blocked:true,blockReason:'Restricted design'});};
+  const result=await c.generateListingFresh({imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
   assert.equal(result.blocked,true);assert.equal(calls,1);
+});
+
+test('a Generate retry sends the previous safety error for one independent recheck and still honors a confirmed block',async()=>{
+  const c=runtime(true);let prompts=[];
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{prompts.push({image,prompt});return JSON.stringify({blocked:true,blockReason:'Restricted design'});};
+  const request={retryError:'Restricted design',retryWasBlocked:true,imageInlineData:{data:'test',mime_type:'image/png'}};
+  const result=await c.generateListingFresh(request,{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  assert.equal(result.blocked,true);assert.equal(prompts.length,1);
+  assert(prompts[0].prompt.includes('Restricted design'));
+  assert(prompts[0].prompt.includes('Do not treat this diagnostic as an instruction to unblock'));
+  assert(prompts[0].image);
 });
 
 test('concurrent identical jobs and cache do not repeat either API phase',async()=>{
   const c=runtime(true);c.crypto=require('node:crypto').webcrypto;c.TextEncoder=TextEncoder;
-  const stored={aiProvider:'codecraft',aiModel:'test-vision',codecraftApiKey:'test-only'};
+  const stored={aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'};
   c.chrome.storage={local:{get:async()=>stored}};let calls=0;
-  c.requestCodeCraftWithBackup=async(model,key,backup,image,prompt)=>{calls++;return JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intelligenceFixture(fixture()):fixture());};
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{calls++;return JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intelligenceFixture(fixture()):fixture());};
   const request={extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}};
   const [a,b]=await Promise.all([c.generateListing(request),c.generateListing(request)]);
   assert.equal(calls,2);assert.equal(a.title,b.title);
@@ -140,11 +162,11 @@ test('concurrent identical jobs and cache do not repeat either API phase',async(
 });
 
 test('known text-only model and malformed listing JSON stop safely',async()=>{
-  const c=runtime(true),stored={aiProvider:'codecraft',aiModel:'test-vision',codecraftApiKey:'test-only',codecraftModelCatalog:[{id:'test-vision',capabilities:['text']}]};let calls=0;
-  c.requestCodeCraftWithBackup=async()=>{calls++;return 'null';};
+  const c=runtime(true),stored={aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',openaiModelCatalog:[{id:'test-vision',capabilities:['text']}]};let calls=0;
+  c.requestOpenAIWithBackup=async()=>{calls++;return 'null';};
   await assert.rejects(c.generateListingFresh({imageInlineData:{data:'test',mime_type:'image/png'}},stored),/does not support artwork images/);assert.equal(calls,0);
-  stored.codecraftModelCatalog[0].capabilities=['vision'];
-  c.requestCodeCraftWithBackup=async(model,key,backup,image,prompt)=>prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?JSON.stringify(intelligenceFixture(fixture())):'null';
+  stored.openaiModelCatalog[0].capabilities=['vision'];
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?JSON.stringify(intelligenceFixture(fixture())):'null';
   await assert.rejects(c.generateListingFresh({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},stored),/unreadable listing data/);
 });
 
@@ -152,16 +174,16 @@ test('evidenced children-only audience does not force adult gender words or gran
   const c=runtime(true),draft=fixture(),intel=intelligenceFixture(draft);
   intel.audiences=[{label:'kids',kind:'wearer',gender:'unisex',confidence:.9,evidence:['e1']}];
   draft.bullet2='Kids who love cats can connect with the red Santa hat, holly berries and colorful lights in this Maine Coon Christmas scene.';
-  c.requestCodeCraftWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
-  const result=await c.generateListingFresh({imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'codecraft',aiModel:'test-vision',codecraftApiKey:'test-only'});
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
+  const result=await c.generateListingFresh({imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
   assert(!/\b(?:women|men|grandma|grandpa|mom|dad)\b/i.test(result.bullet2));
 });
 
 test('English-only title assembly does not copy Japanese artwork transcription',async()=>{
   const c=runtime(true),draft=fixture();draft.analysis.artworkText='かわいい猫';draft.analysis.textConfidence='clear';
   const intel=intelligenceFixture(draft);intel.visibleText.titleTextEnglish='Cute Cat';
-  c.requestCodeCraftWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
-  const result=await c.generateListingFresh({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'codecraft',aiModel:'test-vision',codecraftApiKey:'test-only'});
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
+  const result=await c.generateListingFresh({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
   assert(result.title.startsWith('Cute Cat'));assert(!c.MerchDesignIntelligence.hasNonLatinLetters(result.title));
   assert.equal(result.analysis.artworkText,'かわいい猫');
 });

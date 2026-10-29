@@ -24,13 +24,13 @@ Reload the extension from `chrome://extensions` after updating its files. Reload
 
 ## AI providers and privacy
 
-The popup supports Gemini, OpenAI, and CodeCraft API models. You provide your own provider key. Keys are stored in Chrome's local extension storage. The selected provider receives the artwork image and listing prompt when you generate a listing. API key tests send a short text-only request. MERCH PRO does not operate a listing server or send listing data to a MERCH PRO backend. Your provider may charge for API use under its terms.
+The popup supports Google Gemini, OpenAI, and Anthropic Claude models. You provide your own provider key. Keys are stored in Chrome's local extension storage. The selected provider receives the artwork image and listing prompt when you generate a listing. API key tests send a short text-only request. MERCH PRO does not operate a listing server or send listing data to a MERCH PRO backend. Your provider may charge for API use under its terms.
 
 Official key pages:
 
 - [Google AI Studio](https://aistudio.google.com/apikey)
 - [OpenAI Platform](https://platform.openai.com/api-keys)
-- [CodeCraft API](https://codecraftapi.com/)
+- [Anthropic Claude Console](https://platform.claude.com/settings/keys)
 
 ## Trademark and copyright checks
 

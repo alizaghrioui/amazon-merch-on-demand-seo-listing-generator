@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.1.88
+- Send the previous generation error to the AI on the next Generate attempt, including a single independent recheck of prior policy blocks; confirmed or uncertain safety blocks still stop listing generation.
+
+## 1.1.87
+- Use low adaptive effort for Claude Haiku 5.5 Auto Fast requests and API checks to reduce response latency.
+
+
+## 1.1.86
+- Speed up Claude Auto Fast listing generation by using the concise listing prompt and a 4,096-token response cap while preserving the separate artwork safety analysis and local validations.
+
+
+## 1.1.85
+- Add Anthropic's required direct-browser access header to Claude model discovery and API requests, fixing Claude API tests from the extension.
+
+
+## 1.1.84
+- Show Claude API 401 authentication errors and 403 permission errors separately, including Anthropic's response message for clearer diagnosis.
+
+
+## 1.1.83
+- Remove CodeCraft API support and add Anthropic Claude with model discovery, primary and backup keys, API testing, and listing generation alongside Gemini and OpenAI.
+
+
 ## 1.1.82
 - Stop treating cute or playful artwork as humor by itself; add Cute to Title when Stage 1 verifies that visual style.
 
@@ -107,13 +130,13 @@
 
 ## 1.1.53
 - Shorten CodeCraft Auto Fast's artwork prompt and response budget while retaining listing, audience, event, and risk rules; build the remaining keywords locally.
-- Correct the CodeCraft model count label when the provider omits vision capability metadata.
+- Correct the CodeCraft model count label when the provider omits capability metadata.
 
 ## 1.1.52
 - Accept CodeCraft's live `/v1/models` response when it provides model IDs without capability metadata; prefer known image-capable Gemini models for Auto Fast and Auto Pro.
 
 ## 1.1.51
-- Add CodeCraft API as a provider with separate provider and model selectors, dynamically loaded vision-capable models, Auto Fast and Auto Pro modes, key testing, and quota/rate-limit backup-key support.
+- Add CodeCraft API as a provider with separate provider and model selectors, dynamically loaded vision-capable models, primary and backup keys, API tests, and quota/rate-limit backup-key support.
 
 ## 1.1.50
 - Format generated Titles in normal title case instead of copying all-caps artwork lettering.

@@ -228,13 +228,17 @@
       <style>
         .go{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;padding:12px 20px;border:1px solid #b91c3c;border-radius:12px;background:linear-gradient(135deg,#ed3658,#bd1236);box-shadow:0 4px 12px #bd12362b,inset 0 1px 0 #ffffff38;font:600 13px Arial,sans-serif;letter-spacing:.15px;transition:box-shadow .18s,transform .18s,background .18s}.go::before{content:"✦";font-size:19px;line-height:1}.go:hover:not(:disabled){background:linear-gradient(135deg,#f04464,#a80e2e);box-shadow:0 6px 16px #bd123640;transform:translateY(-1px)}.go:active:not(:disabled){transform:translateY(0)}.go:focus-visible{outline:3px solid #f2a2b2;outline-offset:3px}.go:disabled{opacity:.8;transform:none}.go:disabled::before{content:"";width:13px;height:13px;border:2px solid #ffffff55;border-top-color:#fff;border-radius:50%;animation:merch-spin .8s linear infinite}.phrase{min-height:44px;border-radius:10px;max-width:400px}.phrase:focus{outline:2px solid #ed365855;border-color:#dc2448}@keyframes merch-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.go{transition:none}.go:disabled::before{animation:none}}
       </style>
-      <div class="bar"><div class="copy"><b>MERCH PRO <small style="font-size:10px;font-weight:500">v1.1.82</small> · AI listing</b><span>Scan artwork · Create listing · Fill fields</span></div><img class="thumb" hidden alt="Artwork used for generation" /><input class="phrase" type="text" placeholder="Extra keywords or holiday (optional)" aria-label="Extra keywords or holiday" maxlength="500" /><button class="go" type="button">Generate listing &amp; fill</button><button class="undo" type="button" hidden>Undo fill</button><span class="state" role="status" aria-live="polite"></span><details class="details"><summary>View keyword and safety notes</summary><pre></pre><a href="https://tmsearch.uspto.gov/search/" target="_blank" rel="noopener">Open official USPTO Trademark Search ↗</a></details></div>`;
+      <div class="bar"><div class="copy"><b>MERCH PRO <small style="font-size:10px;font-weight:500">v1.1.88</small> · AI listing</b><span>Scan artwork · Create listing · Fill fields</span></div><img class="thumb" hidden alt="Artwork used for generation" /><input class="phrase" type="text" placeholder="Extra keywords or holiday (optional)" aria-label="Extra keywords or holiday" maxlength="500" /><button class="go" type="button">Generate listing &amp; fill</button><button class="undo" type="button" hidden>Undo fill</button><span class="state" role="status" aria-live="polite"></span><details class="details"><summary>View keyword and safety notes</summary><pre></pre><a href="https://tmsearch.uspto.gov/search/" target="_blank" rel="noopener">Open official USPTO Trademark Search ↗</a></details></div>`;
     const button = shadow.querySelector(".go");
     const state = shadow.querySelector(".state");
     const details = shadow.querySelector(".details");
     const pre = shadow.querySelector("pre");
     const undo = shadow.querySelector(".undo");
     let previousFields = null;
+    // A user retry includes the previous generation failure so the model can
+    // reassess or repair it instead of repeating the same response blindly.
+    let previousGenerationError = "";
+    let previousErrorWasBlock = false;
     undo.addEventListener("click", async () => {
       if (!previousFields) return;
       await applyListing(previousFields);
@@ -242,6 +246,10 @@
       state.textContent = "Previous field values restored.";
     });
     button.addEventListener("click", async () => {
+      const retryError = previousGenerationError;
+      const retryWasBlocked = previousErrorWasBlock;
+      previousGenerationError = "";
+      previousErrorWasBlock = false;
       let progressTimer;
       let deadlineTimer;
       button.disabled = true;
@@ -266,12 +274,16 @@
         const generation = chrome.runtime.sendMessage({
           type: "MERCH_PRO_GENERATE_MERCH_LISTING",
           ...artwork,
-          extraKeywords: shadow.querySelector(".phrase").value.trim()
+          extraKeywords: shadow.querySelector(".phrase").value.trim(),
+          retryError,
+          retryWasBlocked
         });
         const deadline = new Promise((_, reject) => { deadlineTimer = setTimeout(() => reject(new Error("The generation did not finish. Check the API connection and retry.")), 250000); });
         const response = await Promise.race([generation, deadline]);
         if (!response?.ok) throw new Error(response?.error || "Could not generate the listing.");
         if (response.result?.blocked) {
+          previousGenerationError = String(response.result.blockReason || "The design needs policy review.").slice(0, 1200);
+          previousErrorWasBlock = true;
           state.className = "state show bad";
           state.textContent = `Listing not filled: ${response.result.blockReason || "The design needs policy review."}`;
           pre.textContent = reportText(response.result);
@@ -296,6 +308,8 @@
         pre.textContent = reportText(response.result);
         details.classList.add("show");
       } catch (error) {
+        previousGenerationError = String(error?.message || "Could not generate the listing.").slice(0, 1200);
+        previousErrorWasBlock = false;
         state.className = "state show bad";
         state.textContent = error.message || "Could not generate the listing. Check the extension settings and try again.";
       } finally {
