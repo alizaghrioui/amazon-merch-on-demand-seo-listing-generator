@@ -19,9 +19,8 @@ async function refreshIntegration(tabId) {
 
 chrome.runtime.onInstalled.addListener(async () => {
   const stored = await chrome.storage.local.get(["merchListingPrefs", "geminiModel", "aiProvider"]);
-  await chrome.storage.local.remove(["groqApiKey", "groqApiKey2", "groqModelCatalog", "codecraftApiKey", "codecraftApiKey2", "codecraftModelCatalog"]);
+  await chrome.storage.local.remove(["groqApiKey", "groqApiKey2", "groqModelCatalog"]);
   if (stored.aiProvider === "groq") await chrome.storage.local.set({ aiProvider: "gemini", aiModel: "auto" });
-  if (stored.aiProvider === "codecraft") await chrome.storage.local.set({ aiProvider: "gemini", aiModel: "auto" });
   if (!stored.geminiModel || stored.geminiModel === "gemini-3.8-flash") {
     await chrome.storage.local.set({ geminiModel: "gemini-3.6-flash" });
   }
