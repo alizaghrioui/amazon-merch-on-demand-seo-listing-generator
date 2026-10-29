@@ -51,6 +51,17 @@ for(const [name,input,expected] of cases)test(`evidence classification: ${name}`
   if(name==='Vintage and Groovy')assert.equal(value.styles.map(item=>item.label).join(','),'Vintage,Groovy');
 });
 
+test('humorous drafts get Funny appended locally without mistaking playful for humor',()=>{
+  const c=runtime(true);
+  c.MerchProPrompt={cleanListingText:value=>String(value||'').trim()};
+  assert.equal(c.ensureFunnyKeyword('Dear Santa My Dad Did It Christmas','playful holiday humor'), 'Dear Santa My Dad Did It Christmas Funny');
+  assert.equal(c.ensureFunnyKeyword('Funny Cat Joke','funny'), 'Funny Cat Joke');
+  assert.equal(c.ensureFunnyKeyword('Cute British Shorthair Cat','cute and playful'), 'Cute British Shorthair Cat');
+  assert.equal(c.ensureFunnyKeyword('Elegant Floral Cat','serious, not funny'), 'Elegant Floral Cat');
+  assert.equal(c.ensureCuteKeyword('British Shorthair Cat', [{label:'Cute'}]), 'British Shorthair Cat Cute');
+  assert.equal(c.ensureCuteKeyword('British Shorthair Cat', []), 'British Shorthair Cat');
+});
+
 test('Santa alone cannot establish matching family; explicit family wording can',()=>{
   const c=runtime(),input=raw('Santa Claus','Santa Claus',{text:'Matching Family Christmas'});
   const match={label:'Matching family Christmas',confidence:.9,evidence:['visual'],count:null,gender:''};

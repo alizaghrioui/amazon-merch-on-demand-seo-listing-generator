@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.82
+- Stop treating cute or playful artwork as humor by itself; add Cute to Title when Stage 1 verifies that visual style.
+
+## 1.1.81
+- Add the required Funny keyword directly when humor is confirmed, avoiding a failed extra AI repair request.
+
+## 1.1.80
+- Preserve Funny in humorous design titles even when it exceeds Amazon’s 59-character limit.
+
+## 1.1.79
+- Require the exact word Funny in Title for designs whose analyzed tone is clearly humorous, while leaving serious designs unaffected.
+
 ## 1.1.78
 
 - Add a standalone Amazon Listing Keyword Optimizer extension with local keyword projects, listing analysis, autocomplete, visible-result extraction, and sequential indexing checks.

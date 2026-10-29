@@ -38,7 +38,7 @@ The checker cannot guarantee Amazon indexing status: results can vary by marketp
 
 ## Privacy and permissions
 
-Keywords, listing drafts, settings, and history remain in Chrome local extension storage. Autocomplete and indexing send the user-requested search phrases to Amazon. No analytics, remote code, or third-party AI service is used. Permissions are for local storage, side-panel access, the active tab, tab management, and the configured Amazon marketplace hosts.
+Keywords, listing drafts, settings, history, and the editable Safe Library remain in Chrome local extension storage. Autocomplete and indexing send the user-requested search phrases to Amazon. No analytics, remote code, or third-party AI service is used. Permissions are for local storage, side-panel access, the active tab, tab management, and the configured Amazon marketplace hosts.
 
 ## Tests
 
@@ -47,3 +47,27 @@ Run the pure-function tests with Node.js:
 ```sh
 node --test tests/*.test.cjs
 ```
+
+## Safe Library and Title Builder
+
+The **Library** tab starts with editable Funny, Cute, Style, Audience, Occasion, and Theme word sets. Library edits are stored under `safeLibrary` in `chrome.storage.local`; the default set is installed only when that key is absent, so existing projects and custom library words remain intact. Click a word chip to add it to the active project's keyword workspace. Terms in the editable trademark blocklist appear in red; this is only a warning, not trademark clearance. Use **Reset to defaults** to replace the library with the shipped lists.
+
+Open **Listing → Title Builder** to select a tone, theme, audience, style, custom design wording, and product type. Generate up to ten unique variations and inspect each title's length, short/long-tail phrase counts, and blocklist hits before using it. Generated titles are never cut to fit the configured limit; over-limit titles remain intact with a manual-review warning. Example titles are inspiration only; check slogans on the USPTO site before use.
+
+## Policy Checker and listing drafts
+
+Policy checks run while listing fields change. They flag configured forbidden claims, Amazon in Brand/Title, risky reference wording, sensitive-group humor, title punctuation/capitalization, title length, and unlisted three-word slogans. Slogan warnings link to USPTO search. Configure forbidden claims, sensitive terms, and the score weight in Settings. The score's component weights always total 100%; policy safety is enabled by Merch on Demand mode. Title overages stay editable and are advisory: the checker never truncates the title.
+
+**Generate from template** creates editable starting drafts for Brand, two bullets, and Description from the Title Builder selections. Use **Next variation** to cycle through alternative drafts. These are templates, not validated claims; review each phrase and remove anything that does not describe the design. The default sample call to action is editable and can be removed.
+
+This list is not exhaustive. Merch on Demand policies change; always check the official content guidelines and the USPTO database before publishing. Policy and trademark checks are preliminary writing aids, not legal advice.
+
+### Manual Chrome checks
+
+1. Reload the unpacked extension and open its side panel. Confirm the Library tab shows all six categories; click a chip and verify it is added to the active project's keywords.
+2. Add/edit/delete a library word, close and reopen the side panel, and confirm the changes persist. Reset and confirm the shipped words return without altering existing projects.
+3. In Listing → Title Builder select all slots, use a long custom phrase, and generate variations. Confirm there are no repeated words, no cut words, counts are shown, and titles over the limit remain whole.
+4. Use an example title and confirm the slogan-review reminder is visible. Use as Title and verify the editor and live checks update.
+5. Enter forbidden claim text, “Amazon” in Brand, a reference phrase, a sensitive term, excessive punctuation/uppercase, and a custom three-word slogan in separate fields. Confirm each corresponding warning appears and the USPTO link opens a search.
+6. Change the policy weight and confirm score weights add to 100%. Toggle Merch on Demand mode off and verify policy checks stop; turn it on and verify they return.
+7. Generate template drafts; review Brand and both bullets, cycle each Next variation button, edit the Description, and confirm edits persist after switching projects.

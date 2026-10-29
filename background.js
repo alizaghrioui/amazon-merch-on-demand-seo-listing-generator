@@ -1,5 +1,18 @@
 importScripts("listing-prompt.js", "ai-models.js", "seo-planner.js", "seo-engine.js", "holiday-taxonomy.js", "design-intelligence.js");
 
+function ensureFunnyKeyword(title, toneEvidence) {
+  const humorous = /\b(?:funny|humou?r(?:ous)?|comic|comedy|joke|pun|witty|silly|goofy|hilarious|parody|satire|sarcastic|sarcasm)\b/i.test(toneEvidence)
+    && !/\b(?:not|no|without|non)\s+(?:funny|humou?r(?:ous)?|comic|comedy|joke|pun|witty|silly|goofy|hilarious|parody|satire|sarcastic|sarcasm)\b/i.test(toneEvidence);
+  const cleanTitle = MerchProPrompt.cleanListingText(title);
+  return humorous && !/\bfunny\b/i.test(cleanTitle) ? `${cleanTitle} Funny` : cleanTitle;
+}
+
+function ensureCuteKeyword(title, styles) {
+  const cleanTitle = MerchProPrompt.cleanListingText(title);
+  return (styles || []).some(style => /^cute$/i.test(style.label || "")) && !/\bcute\b/i.test(cleanTitle)
+    ? `${cleanTitle} Cute` : cleanTitle;
+}
+
 async function refreshIntegration(tabId) {
   await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
 }
@@ -266,6 +279,10 @@ async function generateListingAttempt(request, feedback = "", stored, repairDraf
     title = appendTitlePart(title, used, style);
     return {title:compact(title), event:compact(event), theme:compact(theme), style:compact(style)};
   };
+  if (intelligence.styles.some(item=>/^cute$/i.test(item.label))) {
+    titleAnalysis.titleStyle = "Cute";
+    result.title = ensureCuteKeyword(result.title, intelligence.styles);
+  }
   const currentTitle = compact(result.title);
   const titleWords = value => compact(value).split(/\s+/).filter(Boolean);
   const candidates = value => {
@@ -407,6 +424,8 @@ async function generateListingAttempt(request, feedback = "", stored, repairDraf
   if (!request.phrase && vision.textConfidence === "unclear") throw new Error("Artwork lettering is unclear. Use a clearer artwork image, then generate again.");
   if (!["clear", "none"].includes(vision.textConfidence) && !request.phrase) throw new Error("Title content needs analysis.artworkText and textConfidence (clear or none). Preserve the actual design wording.");
   if (!request.phrase && vision.textConfidence === "clear" && !exactText) throw new Error("Title content is missing the clear artwork text transcription.");
+  const toneEvidence = normalizeTitleText(vision.toneVibe || "");
+  result.title = ensureFunnyKeyword(result.title, toneEvidence);
   const titleText = normalizeTitleText(result.title);
   const titleWordSet = new Set((titleText.match(/[\p{L}\p{N}]+/gu) || []).map(word => word.toLocaleLowerCase()));
   const labelIsPresent = value => {

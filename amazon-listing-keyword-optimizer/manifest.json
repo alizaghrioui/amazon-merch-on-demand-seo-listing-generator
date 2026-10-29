@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Amazon Listing Keyword Optimizer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A local keyword workspace and listing optimizer for Amazon Merch on Demand.",
   "permissions": ["storage", "sidePanel", "activeTab", "scripting", "tabs"],
   "host_permissions": ["https://www.amazon.com/*", "https://amazon.com/*", "https://www.amazon.co.uk/*", "https://amazon.co.uk/*", "https://www.amazon.de/*", "https://amazon.de/*", "https://completion.amazon.com/*"],

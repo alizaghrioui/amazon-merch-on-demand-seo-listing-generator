@@ -128,7 +128,7 @@ Schema:
     const copyBeyondExactText = words(copy).replace(words(analysis.visibleText.text)||"\u0000"," ").replace(words(analysis.visibleText.titleTextEnglish)||"\u0000"," ");
     const semanticContext = [analysis.interpretation,analysis.mainTheme?.label,...analysis.secondaryThemes.map(item=>item.label),...analysis.evidence.map(item=>item.detail)].join(" ");
     for (const style of root.MerchOccasions.styles) {
-      const semanticTone = style === "Funny" ? /\b(?:funny|humou?r|humou?rous|jokes?|puns?|wordplay|slang|playful|silly|comedic|amusing|meme)\b/i.test(semanticContext)
+      const semanticTone = style === "Funny" ? /\b(?:funny|humou?r|humou?rous|jokes?|puns?|wordplay|slang|silly|comedic|amusing|meme)\b/i.test(semanticContext)
         : style === "Sarcastic" ? /\b(?:sarcastic|sarcasm|ironic|irony|satirical|satire)\b/i.test(semanticContext) : false;
       if (has(copyBeyondExactText,style) && !semanticTone && !analysis.styles.some(item=>has(item.label,style))) issues.push(`${["Funny","Sarcastic"].includes(style) ? "Tone requires semantic evidence" : "Style requires visual evidence"}: ${style}`);
     }
