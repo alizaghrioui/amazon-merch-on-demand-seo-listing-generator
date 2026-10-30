@@ -9,7 +9,7 @@ function runtime(background = false) {
     chrome:{runtime:{onInstalled:{addListener(){}},onMessage:{addListener(){}}}}};
   vm.createContext(context);
   context.importScripts = (...files) => files.forEach(file => vm.runInContext(fs.readFileSync(path.join(__dirname,file),'utf8'),context,{filename:file}));
-  context.importScripts(...(background ? ['background.js'] : ['listing-prompt.js','seo-planner.js','seo-engine.js']));
+  context.importScripts(...(background ? ['background.js'] : ['listing-prompt.js','seo-planner.js','seo-engine.js','listing-optimizer.js']));
   return context;
 }
 
@@ -32,6 +32,39 @@ test('listing text sanitizer removes punctuation and symbols without joining wor
   const c=runtime();
   assert.equal(c.MerchProPrompt.cleanListingText('Hello?-_ @ ][}{ World!'), 'Hello World');
   assert.equal(c.MerchProPrompt.cleanListingText('Red-rose & cat'), 'Red rose cat');
+});
+
+test('optimizer keeps the verified niche first and enforces title and brand caps',()=>{
+  const c=runtime();
+  const title=c.MerchListingOptimizer.title({niche:'Funny Sarcastic Frog',phrase:"I May Look Calm But In My Head I've Slapped You 3 Times",event:'Thanksgiving',theme:'Autumn',funny:true});
+  const brand=c.MerchListingOptimizer.brand({niche:'Funny Sarcastic Frog',subject:'Funny Sarcastic Frog',brand:'Frog Humor Gifts',title});
+  assert(title.startsWith('Funny Sarcastic Frog'));assert(title.length<=60);assert(!title.includes("Slapped You 3 Times"));
+  assert(brand.length<50);assert(brand.endsWith('Apparel Co.'));assert.equal(brand,brand.toLocaleLowerCase().replace(/\b\p{L}/gu,letter=>letter.toLocaleUpperCase()));assert(brand.toLowerCase().includes('frog'));assert(!/gifts?/i.test(brand));assert(brand.split(/\s+/).some(word=>!title.toLowerCase().includes(word.toLowerCase())));
+});
+
+test('brand uses the core niche, a distinct complementary term, and no forced Gifts',()=>{
+  const c=runtime();
+  const brand=c.MerchListingOptimizer.brand({niche:'Maine Coon',subject:'Maine Coon cat',brand:'Maine Coon Christmas Gifts',title:'Maine Coon Christmas Cat For Women'});
+  assert.equal(brand,'Maine Coon Lovers Apparel Co.');assert(brand.length<50);assert(!/gifts?/i.test(brand));
+});
+
+test('Bullet 1 starts with all original artwork words and ends with niche-relevant SEO phrases',()=>{
+  const c=runtime(), artwork="I MAY LOOK CALM BUT IN MY HEAD I'VE SLAPPED YOU 3 TIMES";
+  const result=c.MerchListingOptimizer.bullet1({artworkText:artwork,confidence:'clear',body:'A funny frog wears red glasses and a polka dot bow.',niche:'Funny Frog',subject:'frog',keywords:['Funny frog humor','red glasses','unrelated space art'],max:255});
+  assert.equal(result.text.slice(0,c.MerchProPrompt.cleanListingText(artwork).length).toLowerCase(),c.MerchProPrompt.cleanListingText(artwork).toLowerCase());
+  assert(result.text.endsWith(result.keywords.join(', ')));assert(result.keywords.includes('Funny frog humor'));assert(!result.keywords.includes('unrelated space art'));
+  assert(!/Typography|Cartoon/i.test(result.text));
+});
+
+test('Bullet 1 refuses to truncate original artwork wording over the character limit',()=>{
+  const c=runtime();
+  assert.throws(()=>c.MerchListingOptimizer.bullet1({artworkText:'word '.repeat(60),confidence:'clear',body:'',niche:'word',max:255}),/complete artwork wording exceeds/i);
+});
+
+test('Bullet 1 keeps a niche SEO phrase at the end when the body already uses that phrase',()=>{
+  const c=runtime();
+  const result=c.MerchListingOptimizer.bullet1({body:'Maine Coon cats are shown with red holly leaves and glowing-free winter lights.',niche:'Maine Coon',subject:'Maine Coon cat',keywords:['Maine Coon'],max:255});
+  assert.equal(result.keywords[0],'Maine Coon');assert(result.text.endsWith('Maine Coon'));
 });
 
 test('classifies planner phrases without mutating its plan or inventing metrics', () => {
@@ -64,7 +97,7 @@ test('audits background terms, excluded words, lengths and uncertain relevance h
   assert.equal(report.checks.lengths,false);
 });
 
-test('keeps a long artwork title intact and flags Amazon limit for manual shortening', () => {
+test('audit flags titles over 60 characters for the generator quality checker', () => {
   const c=runtime(), listing=fixture();
   listing.title='The complete exact artwork wording with every readable detail and event';
   const report=c.MerchSEOEngine.audit(listing,{prompt:c.MerchProPrompt});
@@ -76,14 +109,30 @@ test('keeps a long artwork title intact and flags Amazon limit for manual shorte
 test('two-stage background generation retains planner and report with one image analysis and one listing request', async () => {
   const c=runtime(true);let calls=0;
   c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{calls++;if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')){assert(image?.data);return JSON.stringify(intelligenceFixture(fixture()));}assert.equal(image,null);assert(prompt.includes('DESIGN_INTELLIGENCE_LISTING_STAGE'));return JSON.stringify(fixture());};
-  const result=await c.generateListingAttempt({sourceName:'Maine_Coon.png',extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
+  const result=await c.generateListingAttempt({sourceName:'Maine_Coon.png',extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'English (US)'},merchBestSellerLibrary:{enabled:true,titles:['Old reference must not affect listing']}});
   assert.equal(calls,2);
   assert.equal(result.seoPlan.primary,'Maine Coon');
   assert(result.seoReport);
   assert(result.seoReport.keywords.some(row=>row.term==='Maine Coon'));
   assert(result.seoReport.issues.some(item=>item.code==='keyword-evidence'));
   assert.equal(result.description,result.bullet1+' '+result.bullet2);
+  assert(result.title.startsWith('Maine Coon'));assert(result.title.length<=60);
+  assert(result.brand.length<50);assert(result.brand.includes('Maine Coon'));assert(!/gifts?/i.test(result.brand));
+  assert(!result.title.includes('Funny Maine Coon Lover Gift'));
   assert(!result.seoReport.issues.some(item=>item.severity==='error'));
+});
+
+test('generated Bullet 1 preserves the full artwork phrase first and niche SEO phrases last',async()=>{
+  const c=runtime(true),draft=fixture(),artwork="I MAY LOOK CALM BUT IN MY HEAD I'VE SLAPPED YOU 3 TIMES";
+  draft.analysis.artworkText=artwork;draft.analysis.textConfidence='clear';draft.keywords.push('Maine Coon feline');
+  const intel=intelligenceFixture(draft);intel.visibleText={text:artwork,titleTextEnglish:artwork,confidence:'clear'};intel.titlePhrase='I May Look Calm';
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
+  const result=await c.generateListingAttempt({sourceName:'Maine_Coon.png',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
+  const full=c.MerchProPrompt.cleanListingText(artwork),bullet=c.MerchProPrompt.cleanListingText(result.bullet1);
+  assert.equal(bullet.slice(0,full.length).toLowerCase(),full.toLowerCase());
+  const seoEnd=c.MerchProPrompt.cleanListingText(result.bullet1SEOKeywords.join(' '));
+  assert(seoEnd);assert(bullet.toLowerCase().endsWith(seoEnd.toLowerCase()));
+  assert(result.bullet1SEOKeywords.every(term=>term.toLowerCase().includes('maine coon')));
 });
 
 test('a retry includes its previous non-policy error in the listing prompt',async()=>{
@@ -113,13 +162,21 @@ test('saved-design artwork uses the Amazon session and reports fetch failures cl
   assert(JSON.parse(fs.readFileSync(path.join(__dirname,'manifest.json'),'utf8')).host_permissions.includes('https://zme-caps.amazon.com/*'));
 });
 
-test('Costume written on artwork survives title assembly and validation', async () => {
+test('Costume written on artwork survives in Title and complete Bullet 1 wording', async () => {
   const c=runtime(true), draft=fixture();
   draft.analysis.artworkText='Cat Costume';draft.analysis.textConfidence='clear';
   c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intelligenceFixture(draft):draft);
-  const result=await c.generateListingAttempt({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
-  assert(result.title.startsWith('Cat Costume'));
-  assert(!/costume/i.test(result.brand+' '+result.bullet1+' '+result.bullet2));
+  const result=await c.generateListingAttempt({imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
+  assert(result.title.includes('Costume'));
+  assert(result.bullet1.toLowerCase().startsWith('cat costume'));
+  assert(!/costume/i.test(result.brand+' '+result.bullet2));
+});
+
+test('removes unsupported style wording such as Cute before validation',async()=>{
+  const c=runtime(true),draft=fixture();draft.bullet1='A cute Maine Coon Christmas cat features a red Santa hat, colorful lights, holly leaves and red berries.';draft.keywords.push('Cute cat');
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intelligenceFixture(draft):draft);
+  const result=await c.generateListingAttempt({imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
+  assert(!/\bcute\b/i.test([result.title,result.brand,result.bullet1,result.bullet2,...result.keywords].join(' ')));
 });
 
 test('field repair reuses visual analysis rather than making another image call', async()=>{
@@ -130,7 +187,7 @@ test('field repair reuses visual analysis rather than making another image call'
     return JSON.stringify(copyCalls===1?{...draft,bullet1:'Too short.'}:{bullet1:draft.bullet1});
   };
   const result=await c.generateListingFresh({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
-  assert.equal(imageCalls,1);assert.equal(copyCalls,2);assert.equal(result.bullet1,c.MerchProPrompt.cleanListingText(draft.bullet1));
+  assert.equal(imageCalls,1);assert.equal(copyCalls,2);assert.equal(result.bullet1,c.MerchProPrompt.cleanListingText(draft.bullet1+' Maine Coon'));
 });
 
 test('blocked Stage 1 stops without generating a listing',async()=>{
@@ -184,6 +241,6 @@ test('English-only title assembly does not copy Japanese artwork transcription',
   const intel=intelligenceFixture(draft);intel.visibleText.titleTextEnglish='Cute Cat';
   c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
   const result=await c.generateListingFresh({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
-  assert(result.title.startsWith('Cute Cat'));assert(!c.MerchDesignIntelligence.hasNonLatinLetters(result.title));
+  assert(result.title.includes('Cute Cat'));assert(result.title.length<=60);assert(!c.MerchDesignIntelligence.hasNonLatinLetters(result.title));
   assert.equal(result.analysis.artworkText,'かわいい猫');
 });

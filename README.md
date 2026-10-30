@@ -15,10 +15,11 @@ Reload the extension from `chrome://extensions` after updating its files. Reload
 ## What it does
 
 - Reads visible artwork text and identifies the main niche, theme, style, and supported holiday or event.
-- Creates a title, brand, two feature bullets, and a description made only from those bullets.
+- Creates a concise niche-first title, a distinct niche-led brand, two feature bullets, and a description made only from those bullets.
+- Preserves complete readable artwork wording at the start of Bullet 1, then places relevant niche SEO phrases at its end within Amazon field limits.
 - Uses seller notes as listing context and plans relevant keywords without inventing search-volume or competition numbers.
 - Removes punctuation and symbol characters from listing text, replacing them with spaces.
-- Keeps complete artwork wording in the title even when it exceeds Amazon's 59-character title limit. The extension warns the seller to shorten it before publishing.
+- Prioritizes the visually verified filename niche, uses only a short artwork phrase, and enforces a 60-character title limit.
 - Checks for restricted wording, product-type terms, seller exclusions, and preliminary trademark or copyright risks.
 - Fills the browser fields only. Review the copy and Amazon's warnings yourself before saving or publishing.
 

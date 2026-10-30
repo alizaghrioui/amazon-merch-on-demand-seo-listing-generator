@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.1.95
+- Remove the Best Seller title references option from the settings popup and stop using any previously saved references during listing generation.
+- Remove the related settings UI behavior and update the SEO generation tests.
+
+## 1.1.94
+- Format every generated Brand in Title Case and require the exact `Apparel Co.` suffix within the 49-character limit.
+- Keep the verified niche and a distinct relevant complement in the Brand while preserving the required suffix after policy text cleanup.
+- Update the listing prompts and local tests for the Brand format.
+
+## 1.1.93
+- Give Brand a verified core niche plus a distinct, relevant complementary term; stop forcing Gifts, which triggers the listing safety warning.
+- Assemble Bullet 1 from the complete artwork wording first, then visible description, and finish with up to three relevant niche SEO phrases. Keep the 255-character cap and fail clearly rather than truncate text that cannot fit.
+- Validate the artwork-text order, SEO phrase ending, Brand differentiation, and field policy locally while preserving the existing Gemini, SEO planner, Best Seller library, and two-stage image analysis.
+
+
+## 1.1.92
+- Preserve the locally assembled, image-verified niche-first Title after SEO optimization, preventing SEO rewrites from triggering false niche validation errors.
+
+
+## 1.1.91
+- Remove unverified style adjectives from AI listing fields before policy validation while preserving artwork wording, niche words and Stage 1-confirmed styles; resolves repeated Cute-style validation failures.
+
+## 1.1.90
+- Add an optional persistent library for up to 10 editable Best Seller title references; analyze only abstract, niche-relevant structures and never copy complete competitor titles.
+- Verify filename-derived niche candidates against the artwork, keep long artwork text in analysis/Bullet 1, and build concise niche-first titles capped at 60 characters.
+- Programmatically generate descriptive Brands containing the verified niche and the required Gifts term under 50 characters.
+- Preserve existing generation providers, image pipeline, policy checks, audience/holiday intelligence, and locally assembled Description.
+
 ## 1.1.89
 - Remove remaining legacy provider references and migration logic from the extension source and current changelog.
 

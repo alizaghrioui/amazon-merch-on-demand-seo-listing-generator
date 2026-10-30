@@ -51,6 +51,16 @@ for(const [name,input,expected] of cases)test(`evidence classification: ${name}`
   if(name==='Vintage and Groovy')assert.equal(value.styles.map(item=>item.label).join(','),'Vintage,Groovy');
 });
 
+test('filename niche is retained only when it matches filename words and has image evidence',()=>{
+  const c=runtime();const data=raw('Frog','Funny frog illustration');
+  data.evidence.push({id:'file',source:'seller',detail:'Funny Sarcastic Frog'});
+  data.filenameNiche={label:'Funny Sarcastic Frog',confidence:.9,evidence:['visual','file']};
+  const accepted=c.MerchDesignIntelligence.normalize(data,{filename:'Funny-Sarcastic-Frog.png'});
+  assert.equal(accepted.filenameNiche.label,'Funny Sarcastic Frog');
+  const unsupported=c.MerchDesignIntelligence.normalize({...data,filenameNiche:{label:'Vintage Fishing',confidence:.9,evidence:['visual','file']}},{filename:'Funny-Sarcastic-Frog.png'});
+  assert.equal(unsupported.filenameNiche,null);
+});
+
 test('humorous drafts get Funny appended locally without mistaking playful for humor',()=>{
   const c=runtime(true);
   c.MerchProPrompt={cleanListingText:value=>String(value||'').trim()};

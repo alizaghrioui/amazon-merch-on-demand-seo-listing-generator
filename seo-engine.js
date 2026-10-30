@@ -60,12 +60,16 @@
     const limits = {title:[3,Number.MAX_SAFE_INTEGER],brand:[3,49],bullet1:[75,255],bullet2:[75,255],description:[75,1999]};
     for (const [field, [min,max]] of Object.entries(limits)) {
       if (typeof result[field] !== "string" || result[field].length < min || result[field].length > max) add("error", "length", field, `${field} must contain ${min}–${max} characters.`);
-      const policy = prompt.copyIssues(result[field], {allowBrandGifts:field === "brand"});
+      const policy = prompt.copyIssues(result[field]);
       if (policy.length) add("error", "restricted-copy", field, policy.join("; "));
       if (excluded.some(value => normalize(value) && normalize(result[field]).toLocaleLowerCase().includes(normalize(value).toLocaleLowerCase()))) add("error", "excluded-term", field, "Contains a seller-excluded term.");
     }
     if (typeof result.title === "string" && result.title.length > 59) add("review", "title-over-amazon-limit", "title", `Title is ${result.title.length} characters; Amazon's limit is 59. It was kept intact so the seller can shorten it manually.`);
     if (result.description !== prompt.descriptionFromBullets(result.bullet1, result.bullet2)) add("error", "description", "description", "Description must equal both bullets joined by one space.");
+    const artworkText=prompt.cleanListingText(result.designIntelligence?.visibleText?.text||"");
+    if(artworkText&&prompt.cleanListingText(result.bullet1).slice(0,artworkText.length).toLocaleLowerCase()!==artworkText.toLocaleLowerCase())add("error","artwork-text-order","bullet1","Bullet 1 must begin with all readable original artwork words in order.");
+    const seoEnding=prompt.cleanListingText((result.bullet1SEOKeywords||[]).join(" "));
+    if(seoEnding&&!prompt.cleanListingText(result.bullet1).toLocaleLowerCase().endsWith(seoEnding.toLocaleLowerCase()))add("error","seo-keywords-ending","bullet1","Bullet 1 must end with its relevant niche SEO phrases.");
     for (const term of (Array.isArray(result.keywords) ? result.keywords : [])) {
       if (prompt.copyIssues(term).length) add("error", "restricted-copy", "keywords", `Restricted keyword: ${normalize(term)}.`);
       if (excluded.some(value => normalize(value) && normalize(term).toLocaleLowerCase().includes(normalize(value).toLocaleLowerCase()))) add("error", "excluded-term", "keywords", "Keyword contains a seller-excluded term.");
