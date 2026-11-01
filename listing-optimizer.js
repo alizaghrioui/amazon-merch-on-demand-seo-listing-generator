@@ -2,8 +2,8 @@
   const compact=value=>String(value||"").normalize("NFKC").replace(/[\u0000-\u001f\u007f]/g," ").replace(/\s+/g," ").trim();
   const words=value=>compact(value).split(/\s+/).filter(Boolean);
   const key=value=>String(value).toLowerCase().replace(/[^\p{L}\p{N}]/gu,"");
-  function cleanCandidate(value){return compact(value).replace(/[?\-_*@\[\]{}]/g," ").replace(/\s+/g," ").trim();}
-  function title({niche,phrase,event,theme,style,funny,max=60}){
+  function cleanCandidate(value){return compact(value).replace(/[\p{S}]+/gu," ").replace(/[?\-_*@\[\]{}]/g," ").replace(/\s+/g," ").trim();}
+  function title({niche,phrase,event,theme,style,funny,keywords=[],max=60}){
     const base=words(cleanCandidate(niche));if(!base.length)return "";
     const out=[],seen=new Set();const add=value=>{
       const pending=[];for(const word of words(cleanCandidate(value))){const k=key(word);if(k&&!seen.has(k)&&!pending.some(item=>key(item)===k))pending.push(word);}
@@ -13,7 +13,11 @@
     let basePhrase="";for(const word of base){const next=basePhrase?`${basePhrase} ${word}`:word;if(next.length>Math.min(45,max))break;basePhrase=next;}add(basePhrase);
     if(funny)add("Funny");
     const shortPhrase=words(cleanCandidate(phrase)).slice(0,4).join(" ");add(shortPhrase);
-    add(event);add(theme);add(style);
+    add(event);
+    // Seller keywords are optional SEO hints. Use only a small, natural
+    // selection so the verified niche and supported event stay prominent.
+    for(const item of (Array.isArray(keywords)?keywords:[]).slice(0,4)) add(item);
+    add(theme);add(style);
     return out.join(" ");
   }
   const stop=new Set("a an and at by for from in of on the to with wearing featuring holding".split(" "));
@@ -23,11 +27,11 @@
     const candidates=[head(niche),head(subject)].filter(list=>list.length).sort((a,b)=>a.length-b.length);
     return candidates[0]?.join(" ")||words(cleanCandidate(niche)).slice(-1).join("");
   }
-  function brand({niche,subject="",brand="",title="",max=49}){
+  function brand({niche,subject="",brand="",title="",keywords=[],max=49}){
     const originalCore=coreNiche({niche,subject});if(!originalCore)return "Design Fans Apparel Co.";
     const suffix="Apparel Co.";
     const titleKeys=new Set(words(title).map(key));
-    const candidates=words(cleanCandidate(brand)).filter(word=>!stop.has(key(word))&&!modifiers.has(key(word))&&!/^(?:gift|gifts|design|art|apparel|clothing|co)$/i.test(word));
+    const candidates=[...(Array.isArray(keywords)?keywords:[]).flatMap(value=>words(cleanCandidate(value))),...words(cleanCandidate(brand))].filter(word=>!stop.has(key(word))&&!modifiers.has(key(word))&&!/^(?:gift|gifts|design|art|apparel|clothing|co)$/i.test(word));
     const coreWords=words(originalCore);
     const extras=candidates.filter(word=>!coreWords.some(base=>key(base)===key(word))&&!titleKeys.has(key(word)));
     const fallbacks=["Lovers","Fans","Enthusiasts"].filter(word=>!titleKeys.has(key(word)));
@@ -80,11 +84,26 @@
       if(fallback)suffix.push(fallback);
     }
     const prefix=text?cleanCandidate(text):"";
-    let selected=suffix;
-    const build=terms=>[prefix,tail,terms.length?terms.join(", "):""].filter(Boolean).join(" ").replace(/\s+/g," ").trim();
-    let result=build(selected);
-    while(result.length>max&&selected.length){selected=selected.slice(0,-1);result=build(selected);}
-    while(result.length>max&&tail){const sentences=tail.split(/(?<=[.!?])\s+/u);sentences.pop();tail=sentences.join(" ");result=build(selected);}
+    const build=(body,terms)=>[prefix,body,terms.length?terms.join(", "):""].filter(Boolean).join(" ").replace(/\s+/g," ").trim();
+    const trimBodyToFit=(body,terms)=>{
+      let fitted=body;
+      while(build(fitted,terms).length>max&&fitted){
+        const shorter=fitted.replace(/\s+\S+\s*$/u,"").trim();
+        if(shorter===fitted)break;
+        fitted=shorter;
+      }
+      return fitted;
+    };
+    let selected=suffix, fittedTail=trimBodyToFit(tail,selected);
+    if(build(fittedTail,selected).length>max){
+      selected=[];fittedTail=tail;
+      for(let count=suffix.length-1;count>=1;count--){
+        const terms=suffix.slice(0,count), body=trimBodyToFit(tail,terms);
+        if(build(body,terms).length<=max){selected=terms;fittedTail=body;break;}
+      }
+    }
+    tail=fittedTail;
+    let result=build(tail,selected);
     if(suffix.length&&!selected.length)throw new Error("Bullet 1 cannot fit a niche SEO phrase after the complete artwork wording within 255 characters.");
     if(result.length>max||text&&!result.toLocaleLowerCase().startsWith(prefix.toLocaleLowerCase()))throw new Error("Bullet 1 cannot preserve the complete artwork wording within 255 characters.");
     return {text:result,keywords:selected};

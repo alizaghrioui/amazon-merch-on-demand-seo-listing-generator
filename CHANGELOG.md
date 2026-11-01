@@ -1,5 +1,70 @@
 # Changelog
 
+## 1.2.11
+- Refine the toolbar to the supplied clean layout with navy field-card headers, orange circular icons, a branded design-preview panel, and a shared blue status strip.
+- Keep the current artwork preview and Undo control together on the left, with responsive layouts and existing generation/settings controls.
+
+## 1.2.10
+- Redesign the inline listing generator to match the supplied navy-and-orange layout, with a branded sidebar, labeled input icons, blue guidance strip, and orange Generate button.
+- Add working settings and collapse/reopen controls, and adapt the card to narrower editor widths.
+
+## 1.2.9
+- Use the actual logo lettering and rounded-square icon extracted from the supplied reference image, preserving its exact design and font appearance.
+- Display the original wordmark in the popup and Merch toolbar, and expose only the image assets needed by the toolbar.
+
+## 1.2.8
+- Rename the extension to MerchPilot across the Chrome manifest, settings, listing toolbar, help text, and README.
+- Replace the logo and Chrome icons with a navy, white, and orange M-and-arrow identity inspired by the supplied reference.
+
+## 1.2.7
+- Remove the character-count limit from the niche-keyword box and pass its complete text to the listing prompts.
+
+## 1.2.6
+- Make the Best Seller title-reference and niche-keyword boxes the primary guidance in the toolbar, with photo analysis shown as supporting design/event evidence.
+- Rephrase long reference titles into original titles within the listing limit; prohibit copied phrases and use the photo as the fallback when both text boxes are blank.
+
+## 1.2.5
+- Add separate Best Seller title-reference and niche-keyword fields to the Merch listing toolbar.
+- Use title references for structure only and distribute translated, policy-safe niche keywords through SEO listing copy and keywords.
+- Keep automatic artwork understanding within Generate; no separate scan action is required.
+
+## 1.2.4
+- Count an exact holiday name printed in or translated from the artwork as direct evidence, preventing false unsupported-holiday errors.
+- Keep a generic New Year phrase from being treated as evidence for the more specific Lunar New Year.
+
+## 1.2.3
+- Force every customer-facing listing field to English, translating artwork wording and seller keywords while preserving original text only in internal analysis.
+- Use the English translation of artwork lettering in Bullet 1 and validate against non-Latin scripts in listing fields.
+
+## 1.2.2
+- Normalize the prohibited “review” term to “rating” in every generated listing field before policy validation, including when star artwork is misread as text.
+- Add regression coverage for normalization in the title, bullets, and SEO keywords.
+
+## 1.2.1
+- Trim generated Bullet 1 details at word boundaries to preserve the complete artwork wording and at least one relevant niche SEO phrase within 255 characters.
+- Add a regression test for long AI-generated artwork detail.
+
+## 1.2.0
+- Convert AI-invented “review” wording to “rating” before copy validation, without rewriting seller-provided exact artwork wording.
+- Add the restricted-word guidance to both listing prompts and a regression test for star-rating designs.
+
+## 1.1.99
+- Convert AI-invented “review” wording to the accurate “rating” wording for star-rating artwork before validation; preserve it when the word is actually printed in the artwork.
+- Add the restricted-word rule to both listing prompts and a regression test for the correction.
+
+## 1.1.98
+- Permit a generic text-design subject fallback when artwork lettering is only partially readable, while keeping the text evidence requirement.
+- Add a regression test for partial OCR on rating-style artwork.
+
+## 1.1.97
+- Allow text-forward artwork with clear readable text to use a grounded text-design subject fallback when image analysis omits a pictorial subject.
+- Tell the image analyzer to identify quote, rating, and lettering concepts as the subject for text-first designs.
+- Add a regression test for one-star rating artwork.
+
+## 1.1.96
+- Remove Unicode star and other symbol glyphs from the complete artwork phrase before composing Bullet 1, preventing Amazon invalid-character errors while preserving readable words.
+- Tell listing models to describe star-rating icons in plain words and test the one-star artwork case.
+
 ## 1.1.95
 - Remove the Best Seller title references option from the settings popup and stop using any previously saved references during listing generation.
 - Remove the related settings UI behavior and update the SEO generation tests.

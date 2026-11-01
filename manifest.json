@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "MERCH PRO Listing Studio",
-  "version": "1.1.95",
+  "name": "MerchPilot – AI Listing & SEO",
+  "version": "1.2.11",
   "description": "Generate policy-aware Merch listings from merch.amazon.com and fill the product-detail fields.",
   "permissions": [
     "activeTab",
@@ -21,7 +21,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "MERCH PRO \u00b7 AI Settings",
+    "default_title": "MerchPilot · AI Settings",
     "default_popup": "panel.html",
     "default_icon": {
       "16": "icons/icon-16.png",
@@ -48,5 +48,19 @@
     "32": "icons/icon-32.png",
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
-  }
+  },
+  "short_name": "MerchPilot",
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/logo.png",
+        "icons/icon-48.png",
+        "icons/icon-128.png",
+        "icons/wordmark.png"
+      ],
+      "matches": [
+        "https://merch.amazon.com/*"
+      ]
+    }
+  ]
 }

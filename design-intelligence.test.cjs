@@ -98,6 +98,21 @@ test('rejects malformed, missing, weak and fabricated seller evidence safely',()
   assert.equal(c.MerchDesignIntelligence.normalize(input,{notes:'women'}).occasions.length,0);
 });
 
+test('text-forward designs get a grounded subject fallback when visual subject classification is missing',()=>{
+  const c=runtime(),input=raw('','MEN with a five-star rating graphic and humorous wording',{text:'MEN ZERO LOGIC ZERO EFFORT'});
+  input.subject={label:'',confidence:0,evidence:[]};input.mainTheme={label:'',confidence:0,evidence:[]};
+  const value=c.MerchDesignIntelligence.normalize(input);
+  assert.equal(value.subject.label,'Text-Based Design');
+  assert(value.subject.evidence.includes('visual'));
+});
+
+test('partially readable text-forward artwork can still use the text-design fallback',()=>{
+  const c=runtime(),input=raw('','MEN with partially legible lettering and five rating stars',{text:'MEN ZERO LOGIC'});
+  input.visibleText.confidence='unclear';input.subject={label:'',confidence:0,evidence:[]};input.mainTheme={label:'',confidence:0,evidence:[]};
+  const value=c.MerchDesignIntelligence.normalize(input);
+  assert.equal(value.subject.label,'Text-Based Design');
+});
+
 test('seller occasion is retained as seller context, never as invented visual evidence',()=>{
   const c=runtime(),input=raw('Flower','Plain flower',{notes:'Christmas women',generic:true});
   input.occasions=[{id:'christmas',label:'Christmas',relation:'seller',confidence:.9,evidence:['seller']}];
@@ -154,6 +169,18 @@ test('copy gate rejects unsupported holidays, styles and matching claims, includ
   const issues=c.MerchDesignIntelligence.listingIssues({title:'Retro Christmas Cat',bullet1:'Matching family design',keywords:['Diwali cat']},analysis);
   assert(issues.some(value=>value.includes('Christmas')));assert(issues.some(value=>value.includes('Diwali')));
   assert(issues.some(value=>value.includes('Retro')));assert(issues.some(value=>value.includes('Matching-family')));
+});
+
+test('explicit holiday wording in the artwork supports the matching title and keyword',()=>{
+  const c=runtime(),analysis=c.MerchDesignIntelligence.normalize(raw('Dragon','Dragon with holiday lettering',{text:'Happy Lunar New Year'}));
+  const issues=c.MerchDesignIntelligence.listingIssues({title:'Dragon Lunar New Year',bullet1:'Happy Lunar New Year with a dragon',keywords:['Lunar New Year dragon','New Year dragon']},analysis);
+  assert(!issues.some(value=>value.includes('New Year')));
+});
+
+test('a generic New Year mention does not establish Lunar New Year',()=>{
+  const c=runtime(),analysis=c.MerchDesignIntelligence.normalize(raw('Dragon','Dragon illustration',{text:'Happy New Year'}));
+  const issues=c.MerchDesignIntelligence.listingIssues({title:'Dragon Lunar New Year',keywords:['Lunar New Year dragon']},analysis);
+  assert(issues.some(value=>value.includes('Lunar New Year')));
 });
 
 test('funny and sarcastic tone may be supported by phrase interpretation, not only visual styles',()=>{

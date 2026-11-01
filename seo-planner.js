@@ -31,6 +31,14 @@ Bullets should be informative complete sentences, 75–255 characters each, aimi
     const stop = new Set("a an the and or for with of in on to this that design artwork please include add keyword keywords listing title bullet bullets notes note".split(" "));
     return [...new Set((String(value).normalize("NFKC").toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || []).filter(word => !stop.has(word)))];
   }
+  function keywordPhrases(value = "") {
+    const seen = new Set();
+    return String(value || "").split(/[,،;؛\n|]+/).map(term => String(term).replace(/\s+/g, " ").trim()).filter(term => {
+      const key = term.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+  }
   function missingNotes(copy, terms) {
     const words = new Set(String(copy).normalize("NFKC").toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || []);
     return terms.filter(word => !words.has(word));
@@ -48,5 +56,5 @@ Bullets should be informative complete sentences, 75–255 characters each, aimi
     const male = /\b(?:men|man|male|boys?|dad|grandpa)\b/i.test(notes);
     return female && male ? "unisex" : female ? "women" : male ? "men" : "";
   }
-  root.MerchSEO = {instructions, select, noteTerms, missingNotes, familyTerms, explicitAudience};
+  root.MerchSEO = {instructions, select, noteTerms, missingNotes, familyTerms, explicitAudience, keywordPhrases};
 })(globalThis);

@@ -1,6 +1,8 @@
-# MERCH PRO Amazon Merch on Demand Listing Generator and SEO Keyword Planner
+# MerchPilot Amazon Merch on Demand Listing Generator and SEO Keyword Planner
 
-MERCH PRO is a Chrome extension for Amazon Merch on Demand listing generation and SEO keyword planning. It analyzes print-on-demand artwork, drafts design-specific titles and bullets, checks listing copy against policy rules, and fills the Amazon Merch listing fields for your review.
+![MerchPilot logo](icons/logo.png)
+
+MerchPilot is a Chrome extension for Amazon Merch on Demand listing generation and SEO keyword planning. It analyzes print-on-demand artwork, drafts design-specific titles and bullets, checks listing copy against policy rules, and fills the Amazon Merch listing fields for your review.
 
 ## Install
 
@@ -25,7 +27,7 @@ Reload the extension from `chrome://extensions` after updating its files. Reload
 
 ## AI providers and privacy
 
-The popup supports Google Gemini, OpenAI, and Anthropic Claude models. You provide your own provider key. Keys are stored in Chrome's local extension storage. The selected provider receives the artwork image and listing prompt when you generate a listing. API key tests send a short text-only request. MERCH PRO does not operate a listing server or send listing data to a MERCH PRO backend. Your provider may charge for API use under its terms.
+The popup supports Google Gemini, OpenAI, and Anthropic Claude models. You provide your own provider key. Keys are stored in Chrome's local extension storage. The selected provider receives the artwork image and listing prompt when you generate a listing. API key tests send a short text-only request. MerchPilot does not operate a listing server or send listing data to a MerchPilot backend. Your provider may charge for API use under its terms.
 
 Official key pages:
 

@@ -66,8 +66,8 @@
     }
     if (typeof result.title === "string" && result.title.length > 59) add("review", "title-over-amazon-limit", "title", `Title is ${result.title.length} characters; Amazon's limit is 59. It was kept intact so the seller can shorten it manually.`);
     if (result.description !== prompt.descriptionFromBullets(result.bullet1, result.bullet2)) add("error", "description", "description", "Description must equal both bullets joined by one space.");
-    const artworkText=prompt.cleanListingText(result.designIntelligence?.visibleText?.text||"");
-    if(artworkText&&prompt.cleanListingText(result.bullet1).slice(0,artworkText.length).toLocaleLowerCase()!==artworkText.toLocaleLowerCase())add("error","artwork-text-order","bullet1","Bullet 1 must begin with all readable original artwork words in order.");
+    const artworkText=prompt.cleanListingText(result.designIntelligence?.visibleText?.titleTextEnglish||result.designIntelligence?.visibleText?.text||"");
+    if(artworkText&&prompt.cleanListingText(result.bullet1).slice(0,artworkText.length).toLocaleLowerCase()!==artworkText.toLocaleLowerCase())add("error","artwork-text-order","bullet1","Bullet 1 must begin with the complete readable English artwork wording in order.");
     const seoEnding=prompt.cleanListingText((result.bullet1SEOKeywords||[]).join(" "));
     if(seoEnding&&!prompt.cleanListingText(result.bullet1).toLocaleLowerCase().endsWith(seoEnding.toLocaleLowerCase()))add("error","seo-keywords-ending","bullet1","Bullet 1 must end with its relevant niche SEO phrases.");
     for (const term of (Array.isArray(result.keywords) ? result.keywords : [])) {

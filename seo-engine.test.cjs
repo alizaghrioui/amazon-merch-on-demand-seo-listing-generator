@@ -34,6 +34,17 @@ test('listing text sanitizer removes punctuation and symbols without joining wor
   assert.equal(c.MerchProPrompt.cleanListingText('Red-rose & cat'), 'Red rose cat');
 });
 
+test('all listing prompts force English and translate foreign artwork wording',()=>{
+  const c=runtime();
+  const full=c.MerchProPrompt.buildPrompt({language:'Japanese',phrase:'こんにちは',rules:'Escribe en español'});
+  const fast=c.MerchProPrompt.buildFastPrompt({language:'French',phrase:'Bonjour'});
+  assert.match(full,/customer-facing listing field in English only/i);
+  assert.match(full,/Translate non-English artwork wording/i);
+  assert.match(full,/preserve original-language transcription only in internal analysis\.artworkText/i);
+  assert.match(fast,/listing fields must be English only/i);
+  assert.match(fast,/Translate non-English artwork text/i);
+});
+
 test('optimizer keeps the verified niche first and enforces title and brand caps',()=>{
   const c=runtime();
   const title=c.MerchListingOptimizer.title({niche:'Funny Sarcastic Frog',phrase:"I May Look Calm But In My Head I've Slapped You 3 Times",event:'Thanksgiving',theme:'Autumn',funny:true});
@@ -54,6 +65,38 @@ test('Bullet 1 starts with all original artwork words and ends with niche-releva
   assert.equal(result.text.slice(0,c.MerchProPrompt.cleanListingText(artwork).length).toLowerCase(),c.MerchProPrompt.cleanListingText(artwork).toLowerCase());
   assert(result.text.endsWith(result.keywords.join(', ')));assert(result.keywords.includes('Funny frog humor'));assert(!result.keywords.includes('unrelated space art'));
   assert(!/Typography|Cartoon/i.test(result.text));
+});
+
+test('Bullet 1 removes star rating symbols while preserving its readable wording',()=>{
+  const c=runtime(),artwork='WOMEN ★☆☆☆☆ TOO BUSY THRIVING, TRY AGAIN LATER';
+  const result=c.MerchListingOptimizer.bullet1({artworkText:artwork,confidence:'clear',body:'A sarcastic one star rating graphic pairs with a witty workplace statement.',niche:'Coworkers',subject:'Coworkers',keywords:['coworker humor'],max:255});
+  assert(!/[★☆⭐]/u.test(result.text));
+  assert(result.text.startsWith('WOMEN TOO BUSY THRIVING'));
+  assert(result.text.includes('TRY AGAIN LATER'));
+  assert(result.text.includes('one star rating graphic'));
+});
+
+test('Bullet 1 trims generated detail before dropping the required niche keyword',()=>{
+  const c=runtime(),artwork='COWORKERS LOUD AND ANNOYING WOULD AVOID';
+  const result=c.MerchListingOptimizer.bullet1({artworkText:artwork,confidence:'clear',body:'A sarcastic one star rating graphic with five outlined stars and a bold workplace phrase. '.repeat(4),niche:'Coworkers',subject:'Coworkers',keywords:['coworker humor','workplace humor','sarcastic coworker'],max:255});
+  assert(result.text.length<=255);
+  assert(result.text.startsWith(artwork));
+  assert(result.text.endsWith(result.keywords.join(', ')));
+  assert(result.keywords.length>=1);
+});
+
+test('prohibited review wording is normalized to rating in all generated fields',()=>{
+  const c=runtime();
+  const listing={title:'Coworkers One Star Review',bullet1:'One star review graphic for coworkers.',bullet2:'Funny coworkers rating reviews.',keywords:['coworker reviews']};
+  assert.equal(c.MerchProPrompt.replaceUnsubstantiatedReviewTerms(listing,'COWORKERS LOUD AND ANNOYING'),true);
+  assert.equal(listing.title,'Coworkers One Star Rating');
+  assert.equal(listing.bullet1,'One star rating graphic for coworkers.');
+  assert.equal(listing.bullet2,'Funny coworkers rating ratings.');
+  assert.deepEqual(Array.from(listing.keywords),['coworker ratings']);
+  const exact={bullet1:'The artwork literally says REVIEW',keywords:['review design']};
+  assert.equal(c.MerchProPrompt.replaceUnsubstantiatedReviewTerms(exact),true);
+  assert.equal(exact.bullet1,'The artwork literally says RATING');
+  assert.deepEqual(Array.from(exact.keywords),['rating design']);
 });
 
 test('Bullet 1 refuses to truncate original artwork wording over the character limit',()=>{
@@ -107,10 +150,12 @@ test('audit flags titles over 60 characters for the generator quality checker', 
 });
 
 test('two-stage background generation retains planner and report with one image analysis and one listing request', async () => {
-  const c=runtime(true);let calls=0;
-  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{calls++;if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')){assert(image?.data);return JSON.stringify(intelligenceFixture(fixture()));}assert.equal(image,null);assert(prompt.includes('DESIGN_INTELLIGENCE_LISTING_STAGE'));return JSON.stringify(fixture());};
-  const result=await c.generateListingAttempt({sourceName:'Maine_Coon.png',extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'English (US)'},merchBestSellerLibrary:{enabled:true,titles:['Old reference must not affect listing']}});
+  const c=runtime(true);let calls=0;const prompts=[];
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{calls++;prompts.push(prompt);if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')){assert(image?.data);return JSON.stringify(intelligenceFixture(fixture()));}assert.equal(image,null);assert(prompt.includes('DESIGN_INTELLIGENCE_LISTING_STAGE'));return JSON.stringify(fixture());};
+  const result=await c.generateListingAttempt({sourceName:'Maine_Coon.png',extraKeywords:'women',language:'French',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'Japanese'},merchBestSellerLibrary:{enabled:true,titles:['Old reference must not affect listing']}});
   assert.equal(calls,2);
+  assert(prompts.some(prompt=>/customer-facing listing field in English only/i.test(prompt)));
+  assert(prompts.some(prompt=>/audiences of kind wearer for targeting/i.test(prompt)));
   assert.equal(result.seoPlan.primary,'Maine Coon');
   assert(result.seoReport);
   assert(result.seoReport.keywords.some(row=>row.term==='Maine Coon'));
@@ -238,9 +283,10 @@ test('evidenced children-only audience does not force adult gender words or gran
 
 test('English-only title assembly does not copy Japanese artwork transcription',async()=>{
   const c=runtime(true),draft=fixture();draft.analysis.artworkText='かわいい猫';draft.analysis.textConfidence='clear';
-  const intel=intelligenceFixture(draft);intel.visibleText.titleTextEnglish='Cute Cat';
+  const intel=intelligenceFixture(draft);intel.visibleText.titleTextEnglish='Cute Cat';intel.styles=[{label:'Cute',confidence:.9,evidence:['e1']}];
   c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
   const result=await c.generateListingFresh({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
   assert(result.title.includes('Cute Cat'));assert(result.title.length<=60);assert(!c.MerchDesignIntelligence.hasNonLatinLetters(result.title));
+  assert(result.bullet1.startsWith('Cute Cat'));
   assert.equal(result.analysis.artworkText,'かわいい猫');
 });
