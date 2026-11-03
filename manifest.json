@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MerchPilot – AI Listing & SEO",
-  "version": "1.2.11",
+  "version": "1.2.27",
   "description": "Generate policy-aware Merch listings from merch.amazon.com and fill the product-detail fields.",
   "permissions": [
     "activeTab",
@@ -15,7 +15,8 @@
     "https://*.media-amazon.com/*",
     "https://*.ssl-images-amazon.com/*",
     "https://api.openai.com/*",
-    "https://api.anthropic.com/*"
+    "https://api.anthropic.com/*",
+    "https://tmsearch.uspto.gov/*"
   ],
   "background": {
     "service_worker": "background.js"

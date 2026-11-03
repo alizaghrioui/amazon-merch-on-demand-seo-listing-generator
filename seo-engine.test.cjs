@@ -53,6 +53,29 @@ test('optimizer keeps the verified niche first and enforces title and brand caps
   assert(brand.length<50);assert(brand.endsWith('Apparel Co.'));assert.equal(brand,brand.toLocaleLowerCase().replace(/\b\p{L}/gu,letter=>letter.toLocaleUpperCase()));assert(brand.toLowerCase().includes('frog'));assert(!/gifts?/i.test(brand));assert(brand.split(/\s+/).some(word=>!title.toLowerCase().includes(word.toLowerCase())));
 });
 
+test('title keeps a 46–60 character verified niche complete and selects one seller phrase',()=>{
+  const c=runtime();
+  const niche='Science Teacher Proton Positive Chemistry Quote';
+  assert(niche.length>45&&niche.length<=60);
+  const keywords=['Science Teacher','Chemistry Teacher','Biology Teacher','Physics Teacher','STEM Teacher'];
+  const title=c.MerchListingOptimizer.title({niche,phrase:'Think Like a Proton',keywords,max:60});
+  assert(title.startsWith(niche));
+  assert(title.length<=60);
+  assert.doesNotMatch(title,/Biology|Physics|STEM/);
+  const repeated='Science Teacher Chemistry Teacher';
+  assert(c.MerchListingOptimizer.title({niche:repeated,max:60}).startsWith(repeated));
+  assert.throws(()=>c.MerchListingOptimizer.title({niche:niche+' With Extra Words',max:60}),/too long/i);
+});
+
+test('title niche falls back to the verified visual subject when a filename niche exceeds 60',()=>{
+  const c=runtime();
+  const selected=c.MerchListingOptimizer.titleNiche({filenameNiche:'Science Teacher Chemistry Teacher Biology Teacher Physics Teacher STEM Teacher',subject:'Proton Science Quote'});
+  assert.equal(selected,'Proton Science Quote');
+  assert.equal(c.MerchListingOptimizer.titleNiche({filenameNiche:'Science Teacher Chemistry Teacher',subject:'Proton Science Quote'}),'Proton Science Quote');
+  assert.equal(c.MerchListingOptimizer.titleNiche({sellerNiche:['Long '.repeat(15),'Science Teacher'],filenameNiche:'Proton Quote',subject:'Proton'}),'Science Teacher');
+  assert.throws(()=>c.MerchListingOptimizer.titleNiche({filenameNiche:'Science Teacher '.repeat(6),subject:'Proton Science Quote '.repeat(5)}),/too long/i);
+});
+
 test('brand uses the core niche, a distinct complementary term, and no forced Gifts',()=>{
   const c=runtime();
   const brand=c.MerchListingOptimizer.brand({niche:'Maine Coon',subject:'Maine Coon cat',brand:'Maine Coon Christmas Gifts',title:'Maine Coon Christmas Cat For Women'});
@@ -167,6 +190,146 @@ test('two-stage background generation retains planner and report with one image 
   assert(!result.seoReport.issues.some(item=>item.severity==='error'));
 });
 
+test('two-stage generation validates the same full or fallback niche used in the Title',async()=>{
+  for(const filenameNiche of [
+    'Maine Coon Christmas Cat Wearing Red Santa Hat',
+    'Maine Coon Christmas Cat Wearing Red Santa Hat With Colorful Lights'
+  ]){
+    const c=runtime(true),draft=fixture(),intel=intelligenceFixture(draft);
+    intel.filenameNiche={label:filenameNiche,confidence:.9,evidence:['e1']};
+    const sourceName=filenameNiche.replace(/ /g,'-')+'.png';
+    c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
+    const result=await c.generateListingAttempt({sourceName,imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+    const expected=filenameNiche.length<=60?filenameNiche:'Maine Coon';
+    assert(result.title.startsWith(expected),result.title);
+    assert(result.title.length<=60);
+    assert.equal(result.analysis.mainNiche,expected);
+  }
+});
+
+test('explicit Science Teacher Main Niche leads the proton Title while Keywords stay secondary',async()=>{
+  const c=runtime(true),draft=fixture();
+  const artwork='THINK LIKE A PROTON STAY POSITIVE';
+  const notes='Chemistry Teacher, Biology Teacher, Physics Teacher, STEM Teacher, Middle School Science Teacher, High School Science Teacher, Elementary Science Teacher, Physical Science Teacher, Life Science Teacher, Earth Science Teacher, Environmental Science Teacher, Anatomy Teacher, Science Lab Teacher, General Science Teacher';
+  draft.brand='Proton Science Quote Lab Apparel Co.';
+  draft.bullet1=`${artwork} A proton symbol and positive charge wordplay connect the phrase to science and chemistry lessons.`;
+  draft.bullet2='Science teachers and STEM educators can connect with the proton wordplay and its positive charge theme in classroom science.';
+  draft.keywords=['Science Teacher','proton quote'];
+  draft.seoPlan={primary:'Science Teacher',secondary:['proton quote'],longTail:[]};
+  draft.analysis={mainNiche:'Proton Science Quote',subNiche:'Science Teacher',artworkText:artwork,textConfidence:'clear',titleTheme:'Science',titleStyle:'',event:'',titleEvent:'',eventStatus:'none',audience:'science educators',audienceGender:'unisex'};
+  const intel={schemaVersion:1,blocked:false,
+    subject:{label:'Proton Science Quote',confidence:.9,evidence:['e1']},
+    verifiedMainNiche:{label:'Science Teacher',confidence:.9,evidence:['e1']},
+    relevantSellerKeywords:[{label:'Chemistry Teacher',confidence:.85,evidence:['e1']}],
+    filenameNiche:{label:'Science Teacher Chemistry Teacher Biology Teacher',confidence:.9,evidence:['e1']},
+    visibleText:{text:artwork,titleTextEnglish:artwork,confidence:'clear'},titlePhrase:'THINK LIKE A PROTON',
+    mainTheme:{label:'Science',confidence:.9,evidence:['e1']},
+    evidence:[{id:'e1',source:'image',detail:'Proton symbol with positive charge wording'}],
+    occasions:[],audiences:[],styles:[],familyMatching:[],secondaryThemes:[],uncertainties:[],genericSymbolsOnly:false};
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
+  const result=await c.generateListingAttempt({sourceName:'Science-Teacher-Chemistry-Teacher-Biology-Teacher.png',mainNiche:'Science Teacher',extraKeywords:notes,imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  assert.equal(result.title,'Science Teacher Think Like a Proton Stay Positive');
+  assert(result.title.length<=60);
+  assert.doesNotMatch(result.title,/Biology|Physics|Anatomy|Earth Science/i);
+  assert.match(result.brand,/Chemistry/i);
+  assert(result.bullet1.startsWith(artwork));
+  assert(!result.keywords.some(term=>/Biology Teacher|Anatomy Teacher|Earth Science Teacher/i.test(term)));
+  assert.deepEqual(Array.from(result.bullet1SEOKeywords),[]);
+  assert.match(result.bullet2,/science teachers/i);
+  assert.equal(result.description,result.bullet1+' '+result.bullet2);
+  assert.equal(result.analysis.mainNicheSource,'seller');
+});
+
+test('a later image-qualified seller phrase becomes the Title niche when the first is unrelated',async()=>{
+  const c=runtime(true),draft=fixture(),intel=intelligenceFixture(draft);
+  intel.relevantSellerKeywords=[{label:'Christmas Cat',confidence:.9,evidence:['e1']}];
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
+  const result=await c.generateListingAttempt({extraKeywords:'Golden Retriever, Christmas Cat',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  assert(result.title.startsWith('Christmas Cat'),result.title);
+  assert(result.title.length<=60);
+  assert.equal(result.analysis.mainNiche,'Christmas Cat');
+  assert(![result.title,result.brand,result.bullet1,result.bullet2,...result.keywords].join(' ').includes('Golden Retriever'));
+});
+
+test('blank Main Niche uses the first artwork-matched Keyword',async()=>{
+  const c=runtime(true),draft=fixture(),intel=intelligenceFixture(draft);
+  intel.relevantSellerKeywords=[{label:'Christmas Cat',confidence:.9,evidence:['e1']}];
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
+  const result=await c.generateListingAttempt({mainNiche:'',extraKeywords:'Christmas Cat, Winter Cat',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  assert(result.title.startsWith('Christmas Cat'),result.title);
+  assert.equal(result.analysis.mainNicheSource,'keywords');
+});
+
+test('blank Main Niche repairs the proton listing from a filename-led, fragmented draft',async()=>{
+  const c=runtime(true),draft=fixture();
+  const notes='Science Teacher, Chemistry Teacher, Biology Teacher, Physics Teacher, STEM Teacher, Middle School Science Teacher, High School Science Teacher, Elementary Science Teacher, Physical Science Teacher, Life Science Teacher, Earth Science Teacher, Environmental Science Teacher, Anatomy Teacher, Science Lab Teacher, General Science Teacher';
+  const lettering='Th I N K LIKE A PROTON, STAY POSITIVE';
+  const claim=(label,evidence=['e1'])=>({label,confidence:.9,evidence});
+  const intel={schemaVersion:1,blocked:false,evidence:[{id:'e1',source:'image',detail:'Atom diagram with a proton and positive charge'},{id:'e2',source:'text',detail:lettering}],
+    subject:claim('Proton quote'),filenameNiche:claim('Think Positive Proton'),
+    relevantSellerKeywords:[claim('Physics Teacher'),claim('Biology Teacher')],
+    visibleText:{text:lettering,titleTextEnglish:lettering,confidence:'clear'},titlePhrase:'Th I N K LIKE A PROTON',
+    mainTheme:claim('Science'),secondaryThemes:[],interpretation:'A proton positive charge science pun',styles:[],genericSymbolsOnly:false,animalTreatment:'none',occasions:[],audiences:[],familyMatching:[],uncertainties:[]};
+  draft.title='Think Positive Proton Th I N K Like A Proton';
+  draft.brand='Think Positive Proton Apparel Co.';
+  draft.bullet1='Th I N K LIKE A PROTON STAY POSITIVE. The atom and positive charge make a simple science joke for chemistry teachers. Physics teacher science humor atom physics element THINK POSITIVE PROTON';
+  draft.bullet2='Science teachers and physics teachers can use this proton wordplay to celebrate the positive side of science and the atom illustration. science teacher chemistry teacher physics keyword';
+  draft.keywords=['Science Teacher','Biology Teacher','Physics Teacher'];
+  draft.seoPlan={primary:'Think Positive Proton',secondary:['Biology Teacher'],longTail:[]};
+  draft.analysis={mainNiche:'Think Positive Proton',subNiche:'Science Teacher',artworkText:lettering,textConfidence:'clear',titleTheme:'Science',titleStyle:'',event:'',titleEvent:'',eventStatus:'none',audience:'science teachers',audienceGender:'unisex'};
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
+  const result=await c.generateListingAttempt({sourceName:'THINK_POSITIVE_PROTON_NAVY_ELEMENT_ATOM_HUMOR.png',mainNiche:'',extraKeywords:notes,imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  assert.equal(result.analysis.mainNicheSource,'keywords');
+  assert.equal(result.analysis.mainNiche,'Science Teacher');
+  assert(result.title.startsWith('Science Teacher Think Like a Proton Stay Positive'),result.title);
+  assert(result.title.length<=60);
+  assert(result.brand.startsWith('Science Teacher'),result.brand);
+  assert.match(result.bullet1,/^THINK LIKE A PROTON,? STAY POSITIVE\b/);
+  assert.doesNotMatch(result.bullet1,/Th I N K|Physics teacher science humor atom physics element/i);
+  assert.match(result.bullet2,/science teachers/i);
+  assert.doesNotMatch(result.bullet2,/physics keyword/i);
+  assert.doesNotMatch([result.title,result.brand,result.bullet1,result.bullet2,...result.keywords].join(' '),/Biology Teacher|Anatomy Teacher|Life Science Teacher/i);
+  assert.deepEqual(Array.from(result.bullet1SEOKeywords),[]);
+  assert.equal(result.description,result.bullet1+' '+result.bullet2);
+});
+
+test('unsupported explicit Main Niche fails visibly before listing copy is requested',async()=>{
+  const c=runtime(true),intel=intelligenceFixture(fixture());let copyCalls=0;
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{
+    if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS'))return JSON.stringify(intel);
+    copyCalls++;return JSON.stringify(fixture());
+  };
+  await assert.rejects(c.generateListingAttempt({mainNiche:'Biology Teacher',extraKeywords:'Christmas Cat, Winter Cat',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'}),/Main Niche.*not supported by the scanned design/);
+  assert.equal(copyCalls,0);
+  await assert.rejects(c.generateListingAttempt({mainNiche:'Science Teacher, Biology Teacher',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'}),/Main Niche must be one phrase/);
+});
+
+test('unsupported teacher specializations in generated copy are rejected for repair',async()=>{
+  const c=runtime(true),draft=fixture(),intel=intelligenceFixture(draft);
+  intel.relevantSellerKeywords=[{label:'Christmas Cat',confidence:.9,evidence:['e1']}];
+  draft.bullet2='Biology teachers who love cats can connect with this Maine Coon Christmas scene of lights, holly leaves and snowflakes.';
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
+  await assert.rejects(c.generateListingAttempt({extraKeywords:'Christmas Cat, Biology Teacher',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'}),/Biology Teacher/);
+});
+
+test('long artwork wording uses a meaningful excerpt in Title and stays complete in Bullet 1',async()=>{
+  const c=runtime(true),draft=fixture();
+  const artwork='I MAY LOOK CALM BUT IN MY HEAD I HAVE SOLVED THE WHOLE SCIENCE PROBLEM TWICE';
+  draft.analysis.artworkText=artwork;draft.analysis.textConfidence='clear';
+  draft.bullet1=`${artwork} A science classroom joke uses a calm statement and a problem-solving twist.`;
+  const intel=intelligenceFixture(draft);
+  intel.visibleText={text:artwork,titleTextEnglish:artwork,confidence:'clear'};
+  intel.titlePhrase='I MAY LOOK CALM';
+  intel.relevantSellerKeywords=[{label:'Science Teacher',confidence:.9,evidence:['e1']}];
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intel:draft);
+  const result=await c.generateListingAttempt({extraKeywords:'Biology Teacher, Science Teacher',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  assert(result.title.startsWith('Science Teacher'),result.title);
+  assert.match(result.title,/I May Look Calm/i);
+  assert(!result.title.includes('Solved the Whole Science Problem'));
+  assert(result.title.length<=60);
+  assert(result.bullet1.startsWith(artwork));
+});
+
 test('generated Bullet 1 preserves the full artwork phrase first and niche SEO phrases last',async()=>{
   const c=runtime(true),draft=fixture(),artwork="I MAY LOOK CALM BUT IN MY HEAD I'VE SLAPPED YOU 3 TIMES";
   draft.analysis.artworkText=artwork;draft.analysis.textConfidence='clear';draft.keywords.push('Maine Coon feline');
@@ -214,7 +377,29 @@ test('Costume written on artwork survives in Title and complete Bullet 1 wording
   const result=await c.generateListingAttempt({imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
   assert(result.title.includes('Costume'));
   assert(result.bullet1.toLowerCase().startsWith('cat costume'));
-  assert(!/costume/i.test(result.brand+' '+result.bullet2));
+  assert.equal(result.description,c.MerchProPrompt.descriptionFromBullets(result.bullet1,result.bullet2));
+});
+
+test('seller Costume keywords survive all listing fields without artwork lettering',async()=>{
+  const c=runtime(true),draft=fixture();
+  draft.brand='Maine Coon Costumes Apparel Co.';
+  draft.bullet1='A Maine Coon Christmas cat costume features a red Santa hat, colorful lights, holly leaves and red berries.';
+  draft.bullet2='Women, grandma, mom and girls who love cat costumes connect with this Maine Coon Christmas scene of lights and snowflakes.';
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intelligenceFixture(draft):draft);
+  const result=await c.generateListingFresh({extraKeywords:'Maine Coon costume',imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  for(const field of ['title','brand','bullet1','bullet2','description'])assert.match(result[field],/\bcostumes?\b/i,field);
+  assert(result.keywords.some(term=>/\bcostumes?\b/i.test(term)));
+  assert.equal(result.analysis.textConfidence,'none');
+  assert.equal(result.description,c.MerchProPrompt.descriptionFromBullets(result.bullet1,result.bullet2));
+});
+
+test('Costume permission does not preserve other product types in bullet copy',async()=>{
+  const c=runtime(true),draft=fixture();
+  draft.bullet1='A Maine Coon Christmas cat costume shirt features a red Santa hat, colorful lights, holly leaves and red berries.';
+  draft.bullet2='Women, grandma, mom and girls who love cat costumes and shirts connect with this Maine Coon Christmas scene of lights and snowflakes.';
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intelligenceFixture(draft):draft);
+  const result=await c.generateListingFresh({imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  for(const field of ['bullet1','bullet2']){assert.match(result[field],/\bcostumes?\b/i);assert.doesNotMatch(result[field],/\bshirts?\b/i);}
 });
 
 test('removes unsupported style wording such as Cute before validation',async()=>{
@@ -224,15 +409,139 @@ test('removes unsupported style wording such as Cute before validation',async()=
   assert(!/\bcute\b/i.test([result.title,result.brand,result.bullet1,result.bullet2,...result.keywords].join(' ')));
 });
 
+test('short Bullet 1 is completed from image evidence without another AI request',async()=>{
+  const c=runtime(true),draft=fixture();let imageCalls=0,copyCalls=0;
+  draft.analysis.artworkText='Happy Holidays';draft.analysis.textConfidence='clear';
+  draft.bullet1='Happy Holidays Maine Coon cat';
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{
+    if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')){imageCalls++;return JSON.stringify(intelligenceFixture(draft));}
+    copyCalls++;return JSON.stringify(draft);
+  };
+  const result=await c.generateListingFresh({imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  assert.equal(imageCalls,1);assert.equal(copyCalls,1);
+  assert(result.bullet1.length>=75&&result.bullet1.length<=255);
+  assert(result.bullet1.startsWith('Happy Holidays'));
+  assert.match(result.bullet1,/Santa hat and Christmas lights/);
+  assert(result.bullet1.endsWith(result.bullet1SEOKeywords.join(', ')));
+  assert.equal(result.description,c.MerchProPrompt.descriptionFromBullets(result.bullet1,result.bullet2));
+});
+
+test('Bullet 1 removed by copy cleanup is recovered with safe image evidence',async()=>{
+  const c=runtime(true),draft=fixture(),intel=intelligenceFixture(draft);let copyCalls=0;
+  draft.bullet1='Perfect for Christmas parties and family gatherings.';
+  intel.evidence[0].detail='Maine Coon cat wearing a red Santa hat with holly leaves and Christmas lights on a white background';
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{
+    if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS'))return JSON.stringify(intel);
+    copyCalls++;return JSON.stringify(draft);
+  };
+  const result=await c.generateListingFresh({imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  assert.equal(copyCalls,1);assert(result.bullet1.length>=75&&result.bullet1.length<=255);
+  assert.doesNotMatch(result.bullet1,/perfect for|parties|gatherings|background/i);
+  assert.match(result.bullet1,/Santa hat/);
+});
+
+test('overlong one-sentence Bullet 1 retains its body before final fitting',async()=>{
+  const c=runtime(true),draft=fixture();let copyCalls=0;
+  draft.analysis.artworkText='Happy Holidays';draft.analysis.textConfidence='clear';
+  draft.bullet1='Happy Holidays '+('Maine Coon cat with a red Santa hat and colorful lights ').repeat(6);
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{
+    if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS'))return JSON.stringify(intelligenceFixture(draft));
+    copyCalls++;return JSON.stringify(draft);
+  };
+  const result=await c.generateListingFresh({imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  assert.equal(copyCalls,1);assert(result.bullet1.length>=75&&result.bullet1.length<=255);
+  assert(result.bullet1.startsWith('Happy Holidays'));assert.match(result.bullet1,/red Santa hat/);
+});
+
 test('field repair reuses visual analysis rather than making another image call', async()=>{
   const c=runtime(true),draft=fixture();let imageCalls=0,copyCalls=0;
   c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{
-    if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')){imageCalls++;assert(image);return JSON.stringify(intelligenceFixture(draft));}
+    if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')){imageCalls++;assert(image);const intel=intelligenceFixture(draft);intel.evidence[0].detail='Maine Coon';return JSON.stringify(intel);}
     copyCalls++;assert.equal(image,null);
     return JSON.stringify(copyCalls===1?{...draft,bullet1:'Too short.'}:{bullet1:draft.bullet1});
   };
   const result=await c.generateListingFresh({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only',merchListingPrefs:{language:'English (US)'}});
   assert.equal(imageCalls,1);assert.equal(copyCalls,2);assert.equal(result.bullet1,c.MerchProPrompt.cleanListingText(draft.bullet1+' Maine Coon'));
+});
+
+for(const scenario of [
+  {notes:'women',terms:['women','grandma','mom','girls'],opposite:/\b(?:men|boys|dad|grandpa)\b/i},
+  {notes:'men',terms:['men','boys','kids','grandpa','dad'],opposite:/\b(?:women|girls|mom|grandma)\b/i},
+  {notes:'women and men',terms:['women','grandma','mom','girls','men','boys','kids','grandpa','dad']}
+])test(`missing Bullet 2 audience for ${scenario.notes} is repaired locally`,async()=>{
+  const c=runtime(true),draft=fixture();let copyCalls=0;
+  if(scenario.notes==='men')draft.bullet1=draft.bullet1.replace('for women','for men');
+  draft.bullet2='A Maine Coon cat wears a red Santa hat with colorful Christmas lights, festive holly and red berries.';
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{
+    if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS'))return JSON.stringify(intelligenceFixture(draft));
+    copyCalls++;return JSON.stringify(draft);
+  };
+  const result=await c.generateListingFresh({extraKeywords:scenario.notes,imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  assert.equal(copyCalls,1);assert(result.bullet2.length>=75&&result.bullet2.length<=255);
+  for(const term of scenario.terms)assert.match(result.bullet2,new RegExp(`\\b${term}\\b`,'i'));
+  if(scenario.opposite)assert.doesNotMatch(result.bullet2,scenario.opposite);
+  assert.match(result.bullet2,/Maine Coon cat/);
+  assert.equal(result.description,c.MerchProPrompt.descriptionFromBullets(result.bullet1,result.bullet2));
+});
+
+test('partial Bullet 2 audience adds only missing roles without repeating existing ones',async()=>{
+  const c=runtime(true),draft=fixture();
+  draft.bullet2='Women and mom who love cats appreciate the Maine Coon Christmas scene with a red Santa hat and holly.';
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intelligenceFixture(draft):draft);
+  const result=await c.generateListingFresh({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  for(const term of ['women','mom','girls','grandma'])assert.equal((result.bullet2.match(new RegExp(`\\b${term}\\b`,'gi'))||[]).length,1,term);
+  assert.match(result.bullet2,/Maine Coon Christmas/);
+});
+
+test('a full Bullet 2 uses a grounded fallback when all required roles need room',async()=>{
+  const c=runtime(true),draft=fixture();let copyCalls=0;
+  draft.bullet2=('A Maine Coon cat wears a red Santa hat with colorful Christmas lights and holly leaves ').repeat(3).trim();
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{
+    if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS'))return JSON.stringify(intelligenceFixture(draft));
+    copyCalls++;return JSON.stringify(draft);
+  };
+  const result=await c.generateListingFresh({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  assert.equal(copyCalls,1);assert(result.bullet2.length>=75&&result.bullet2.length<=255);
+  for(const term of ['women','grandma','mom','girls'])assert.match(result.bullet2,new RegExp(`\\b${term}\\b`,'i'));
+  assert.match(result.bullet2,/Maine Coon/);assert.doesNotMatch(result.bullet2,/\b(?:men|boys|dad|grandpa)\b/i);
+});
+
+test('short Bullet 2 gains visible design detail and stays within 75 to 255 characters',async()=>{
+  const c=runtime(true),draft=fixture();let copyCalls=0;
+  draft.bullet2='A Maine Coon Christmas cat appears for women and girls.';
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>{
+    if(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS'))return JSON.stringify(intelligenceFixture(draft));
+    copyCalls++;return JSON.stringify(draft);
+  };
+  const result=await c.generateListingFresh({imageInlineData:{data:'test',mime_type:'image/png'}},{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'});
+  assert.equal(copyCalls,1);
+  assert(result.bullet2.length>=75&&result.bullet2.length<=255);
+  assert.match(result.bullet2,/Santa hat and Christmas lights/);
+  assert.match(result.bullet2,/women/i);
+  assert.equal(result.description,c.MerchProPrompt.descriptionFromBullets(result.bullet1,result.bullet2));
+});
+
+test('Bullet 2 length fitting keeps required audience and never exceeds 255',()=>{
+  const c=runtime();
+  const output=c.MerchListingOptimizer.bullet2({body:'A Maine Coon cat wears a Santa hat and Christmas lights. '.repeat(5),requiredTerms:['women','girls','mom','grandma'],fallback:'A Maine Coon Christmas cat with a Santa hat and lights appears in this design for women and girls including mom and grandma.',details:['Maine Coon cat wearing a Santa hat and Christmas lights'],min:75,max:255});
+  assert(output.length>=75&&output.length<=255);
+  for(const term of ['women','girls','mom','grandma'])assert.match(output,new RegExp(`\\b${term}\\b`,'i'));
+});
+
+test('Bullet 2 leaves an unsupported short draft for AI repair',()=>{
+  const c=runtime();
+  const output=c.MerchListingOptimizer.bullet2({body:'A small cat.',fallback:'This artwork is for women and men with a small cat design.',details:[],min:75,max:255});
+  assert.equal(output,'A small cat.');
+});
+
+test('audience errors do not report a valid character count as a length failure',async()=>{
+  const c=runtime(true),draft=fixture();
+  draft.bullet1='A Maine Coon Christmas cat has a red Santa hat, holly leaves and colorful Christmas lights.';
+  c.requestOpenAIWithBackup=async(model,key,backup,image,prompt)=>JSON.stringify(prompt.startsWith('DESIGN_INTELLIGENCE_ANALYSIS')?intelligenceFixture(draft):draft);
+  await assert.rejects(c.generateListingAttempt({extraKeywords:'women',imageInlineData:{data:'test',mime_type:'image/png'}},'',{aiProvider:'openai',aiModel:'test-vision',openaiApiKey:'test-only'}),error=>{
+    assert.match(error.message,/Bullet 1: missing seller audience terms: women/);
+    assert.doesNotMatch(error.message,/characters; allowed/);return true;
+  });
 });
 
 test('blocked Stage 1 stops without generating a listing',async()=>{

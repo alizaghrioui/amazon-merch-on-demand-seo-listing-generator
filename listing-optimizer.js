@@ -3,20 +3,40 @@
   const words=value=>compact(value).split(/\s+/).filter(Boolean);
   const key=value=>String(value).toLowerCase().replace(/[^\p{L}\p{N}]/gu,"");
   function cleanCandidate(value){return compact(value).replace(/[\p{S}]+/gu," ").replace(/[?\-_*@\[\]{}]/g," ").replace(/\s+/g," ").trim();}
+  function titleNiche({sellerNiche="",filenameNiche="",subject="",max=60}){
+    const seller=(Array.isArray(sellerNiche)?sellerNiche:[sellerNiche]).map(cleanCandidate);
+    const filename=cleanCandidate(filenameNiche), visualSubject=cleanCandidate(subject);
+    // A filename can be a comma-free list of adjacent niche variants, such
+    // as "Science Teacher Chemistry Teacher Biology Teacher". Prefer the
+    // separately evidenced visual subject over that collection of audiences.
+    const filenameWords=words(filename).map(key);
+    const repeatedTeacher=filenameWords.filter(word=>word==="teacher").length>1;
+    const candidates=[...seller,...(repeatedTeacher?[visualSubject,filename]:[filename,visualSubject])];
+    const selected=candidates.find(value=>value&&value.length<=max);
+    if(!selected)throw new Error(`The verified niche is too long for a ${max}-character Title. Use a shorter artwork filename or a clearer design image, then generate again.`);
+    return selected;
+  }
   function title({niche,phrase,event,theme,style,funny,keywords=[],max=60}){
-    const base=words(cleanCandidate(niche));if(!base.length)return "";
-    const out=[],seen=new Set();const add=value=>{
-      const pending=[];for(const word of words(cleanCandidate(value))){const k=key(word);if(k&&!seen.has(k)&&!pending.some(item=>key(item)===k))pending.push(word);}
-      if(pending.length&&`${out.join(" ")}${out.length?" ":""}${pending.join(" ")}`.length>max)return false;
-      for(const word of pending){out.push(word);seen.add(key(word));}return true;
+    const base=cleanCandidate(niche);if(!base)return "";
+    if(base.length>max)throw new Error(`The verified niche is too long for a ${max}-character Title.`);
+    const out=words(base);const add=value=>{
+      const pending=words(cleanCandidate(value));if(!pending.length)return false;
+      const existing=out.map(key),needle=pending.map(key);
+      if(existing.some((_,index)=>needle.every((word,offset)=>existing[index+offset]===word)))return true;
+      if(`${out.join(" ")} ${pending.join(" ")}`.length>max)return false;
+      out.push(...pending);return true;
     };
-    let basePhrase="";for(const word of base){const next=basePhrase?`${basePhrase} ${word}`:word;if(next.length>Math.min(45,max))break;basePhrase=next;}add(basePhrase);
+    add(phrase);
     if(funny)add("Funny");
-    const shortPhrase=words(cleanCandidate(phrase)).slice(0,4).join(" ");add(shortPhrase);
     add(event);
-    // Seller keywords are optional SEO hints. Use only a small, natural
-    // selection so the verified niche and supported event stay prominent.
-    for(const item of (Array.isArray(keywords)?keywords:[]).slice(0,4)) add(item);
+    // A secondary phrase is optional. Keep novel words such as "Costume"
+    // without repeating the niche, but skip competing teacher specialties.
+    const firstKeyword=(Array.isArray(keywords)?keywords:[]).find(value=>cleanCandidate(value));
+    if(firstKeyword){
+      const existing=new Set(out.map(key)),keywordWords=words(cleanCandidate(firstKeyword));
+      if(!(key(keywordWords.at(-1))==="teacher"&&existing.has("teacher")))
+        add(keywordWords.filter(word=>!existing.has(key(word))).join(" "));
+    }
     add(theme);add(style);
     return out.join(" ");
   }
@@ -56,7 +76,52 @@
     }
     return result;
   }
-  function bullet1({artworkText="",textEnglish="",confidence="none",body="",niche="",subject="",keywords=[],max=255}){
+  function bullet2({body="",requiredTerms=[],fallback="",details=[],min=75,max=255}){
+    const copy=compact(body);
+    const required=[...new Set(requiredTerms.map(value=>compact(value).toLocaleLowerCase()).filter(Boolean))];
+    const contains=(value,term)=>words(cleanCandidate(value)).some(word=>key(word)===key(term));
+    const missing=required.filter(term=>!contains(copy,term));
+    const complete=value=>{
+      if(value.length>=min)return value;
+      const existing=new Set(words(cleanCandidate(value)).map(key));
+      for(const raw of Array.isArray(details)?details:[]){
+        const detail=cleanCandidate(raw);
+        const novel=new Set(words(detail).map(key).filter(token=>token.length>2&&!stop.has(token)&&!existing.has(token)));
+        if(!detail||novel.size<2)continue;
+        const sentence=`The artwork shows ${detail.replace(/[.!?]+$/u,"")}.`;
+        const joined=[value&&/[.!?]$/.test(value)?value:value?`${value}.`:"",sentence].filter(Boolean).join(" ");
+        if(joined.length>max)continue;
+        if(joined.length>=min)return joined;
+      }
+      const safeFallback=compact(fallback);
+      if(required.length&&safeFallback.length>=min&&safeFallback.length<=max&&required.every(term=>contains(safeFallback,term)))return safeFallback;
+      return value;
+    };
+    if(!missing.length)return complete(copy);
+    const join=list=>list.length<2?list.join(""):list.length===2?list.join(" and "):`${list.slice(0,-1).join(", ")} and ${list.at(-1)}`;
+    const audience=list=>{
+      const set=new Set(list);
+      if(list.length===4&&["women","girls","mom","grandma"].every(term=>set.has(term)))return "women and girls including mom and grandma";
+      if(list.length===5&&["men","boys","kids","dad","grandpa"].every(term=>set.has(term)))return "men and boys including kids, dad and grandpa";
+      if(list.length===9&&["women","girls","mom","grandma","men","boys","kids","dad","grandpa"].every(term=>set.has(term)))return "women, men, girls, boys and kids as well as mom, dad, grandma and grandpa";
+      return join(list);
+    };
+    const addition=`This design is ${missing.length<required.length?"also ":""}for ${audience(missing)}.`;
+    const combine=value=>[value&&!/[.!?]$/.test(value)?`${value}.`:value,addition].filter(Boolean).join(" ");
+    if(combine(copy).length<=max)return complete(combine(copy));
+    // Preserve complete existing sentences where they leave room for the
+    // missing audience. Otherwise use the caller's evidence-based fallback.
+    const sentences=copy.split(/(?<=[.!?])\s+/u).filter(Boolean);
+    const selected=[];
+    for(const sentence of sentences)if(combine([...selected,sentence].join(" ")).length<=max)selected.push(sentence);
+    const fitted=combine(selected.join(" "));
+    if(selected.length&&required.every(term=>contains(fitted,term)))return complete(fitted);
+    const safeFallback=compact(fallback);
+    if(safeFallback&&safeFallback.length<=max&&required.every(term=>contains(safeFallback,term)))return complete(safeFallback);
+    // Keep the missing requirement visible to the existing AI field repair.
+    return copy;
+  }
+  function bullet1({artworkText="",textEnglish="",confidence="none",body="",niche="",subject="",keywords=[],details=[],natural=false,min=75,max=255}){
     const text=compact(confidence==="clear"?(artworkText||textEnglish):"");
     const cleanedText=cleanCandidate(text);
     if(text&&cleanedText.length>max)throw new Error("Complete artwork wording exceeds Bullet 1's 255-character limit. Nothing was truncated.");
@@ -74,12 +139,12 @@
     const nicheKeys=new Set(tokensOf(`${niche} ${subject}`).filter(token=>token.length>2));
     const alreadyThere=(phrase,source)=>{const needle=tokensOf(phrase),haystack=tokensOf(source);return needle.length>0&&haystack.some((_,index)=>needle.every((token,offset)=>haystack[index+offset]===token));};
     const suffix=[],seen=new Set();
-    for(const item of Array.isArray(keywords)?keywords:[]){
+    for(const item of natural?[]:Array.isArray(keywords)?keywords:[]){
       const phrase=cleanCandidate(item), normalized=tokensOf(phrase).join(" ");
       if(!phrase||!normalized||seen.has(normalized)||alreadyThere(phrase,`${cleanedText} ${tail}`)||!tokensOf(phrase).some(token=>nicheKeys.has(token)))continue;
       seen.add(normalized);suffix.push(phrase);if(suffix.length>=3)break;
     }
-    if(!suffix.length){
+    if(!natural&&!suffix.length){
       const fallback=(Array.isArray(keywords)?keywords:[]).map(cleanCandidate).find(phrase=>phrase&&tokensOf(phrase).some(token=>nicheKeys.has(token)))||cleanCandidate(coreNiche({niche,subject}));
       if(fallback)suffix.push(fallback);
     }
@@ -104,9 +169,23 @@
     }
     tail=fittedTail;
     let result=build(tail,selected);
+    // A model can return too little copy, or sanitation can remove most of it.
+    // Add only caller-validated image evidence, before the SEO ending. Never
+    // pad with repeated keywords or invent details to satisfy a length check.
+    for(const detail of Array.isArray(details)?details:[]){
+      if(result.length>=min)break;
+      const candidate=cleanCandidate(detail);
+      const existing=new Set(tokensOf(result));
+      const novel=new Set(tokensOf(candidate).filter(token=>!stop.has(token)&&!existing.has(token)));
+      if(!candidate||alreadyThere(candidate,result)||novel.size<2)continue;
+      const extendedTail=[tail,candidate].filter(Boolean).join(" ");
+      const extended=build(extendedTail,selected);
+      if(extended.length>max)continue;
+      tail=extendedTail;result=extended;
+    }
     if(suffix.length&&!selected.length)throw new Error("Bullet 1 cannot fit a niche SEO phrase after the complete artwork wording within 255 characters.");
     if(result.length>max||text&&!result.toLocaleLowerCase().startsWith(prefix.toLocaleLowerCase()))throw new Error("Bullet 1 cannot preserve the complete artwork wording within 255 characters.");
     return {text:result,keywords:selected};
   }
-  root.MerchListingOptimizer={title,brand,coreNiche,bullet1,cleanCandidate};
+  root.MerchListingOptimizer={title,titleNiche,brand,coreNiche,bullet1,bullet2,cleanCandidate};
 })(globalThis);

@@ -1,5 +1,69 @@
 # Changelog
 
+## 1.2.27
+- Extend exact trademark checking to contiguous phrases of four, five, and six words, preserving short words such as A within phrases and highlighting multiword matches red.
+
+## 1.2.26
+- Place trademark previews after the complete Amazon field wrapper so Title and Bullet previews appear below their textareas.
+
+## 1.2.25
+- Keep trademark annotations inline with listing text, avoiding Amazon page button styles that expanded each match to a full-width row; retain click and keyboard access to records.
+
+## 1.2.24
+- Render a full-text trademark review directly below each listing field, with exact matched terms highlighted inline and clickable USPTO record details.
+- Include Product Description in the trademark scan so the check covers the complete listing.
+
+## 1.2.23
+- Place exact trademark-match chips directly below their source Amazon Title, Brand, or Bullet field, keeping click-through USPTO records attached to the matching listing text.
+
+## 1.2.22
+- Restrict trademark highlights to exact normalized wordmark matches, so a searched word or phrase is not colored merely because it appears inside a longer registered mark.
+
+## 1.2.21
+- Add an in-toolbar USPTO trademark scan for Title, Brand, and both feature bullets; mark matching single words yellow and two- or three-word phrases red when live, registered Class 025 records are found.
+- Show matching official records with serial-number links to TSDR; scan through the USPTO search service used by its website, with a single batched request.
+
+## 1.2.20
+- Expand the Main Niche and Keywords cards and input areas to use the empty desktop space above the status strip, while retaining compact field heights on narrow screens.
+
+## 1.2.19
+- Use the first visually supported Keyword as the primary niche when Main Niche is blank, with the verified artwork niche as fallback.
+- Restore stylized THINK lettering, keep the complete short proton quote in Title and at the start of Bullet 1, and remove raw keyword fragments from bullets.
+- Select directly supported Science, Chemistry, and Physics Teacher phrases in input order while excluding unsupported specializations; verify the full listing with a regression case.
+
+## 1.2.18
+- Replace the title-reference card with an explicit Main Niche and label the secondary list Keywords; pass both through the inline generator.
+- Require image or readable-text support for a supplied Main Niche, show a clear mismatch error, and keep Keywords secondary when Main Niche is blank.
+- Compact the MerchPilot toolbar and verify its desktop and narrow layouts without horizontal overflow.
+
+## 1.2.17
+- Qualify comma-separated seller niche phrases against artwork evidence, keeping their original order and using the first relevant phrase as the Title niche.
+- Preserve a short readable artwork phrase in full in Title when it fits within 60 characters; use a meaningful excerpt for long wording and keep the complete text in Bullet 1.
+- Pass only selected seller phrases to listing generation, SEO keywords and local composition; reject unsupported specializations in generated copy.
+
+## 1.2.16
+- Keep the complete verified niche at the start of Title when it fits within 60 characters, and validate against the same chosen niche.
+- Use the verified visual subject when a filename niche is too long or lists multiple teacher specializations; limit Title to one seller keyword phrase.
+- Cover the proton science-teacher artwork and long filename niches with regression tests.
+
+## 1.2.15
+- Fit both generated bullets to 75–255 characters, expanding short Bullet 2 copy with verified artwork details and preserving required audience keywords.
+- Keep AI field repair for short bullets when verified details cannot support natural copy; avoid invented filler or forced audiences.
+
+## 1.2.14
+- Add missing seller-required audience terms to Bullet 2 locally in complete sentences, with no duplicate audience terms or extra AI request.
+- Preserve full sentences within 255 characters or use the validated design fallback, including both audience groups when explicitly requested.
+- Report audience omissions separately from character-length failures.
+
+## 1.2.13
+- Preserve an overlong single-sentence Bullet 1 until its dedicated composer can shorten it, avoiding a short text/keyword-only result.
+- Complete short or heavily cleaned Bullet 1 copy with safe, validated image evidence when available, preserving the full artwork wording, SEO ending, and description consistency.
+- Retain the existing AI field repair when the available evidence cannot support enough copy.
+
+## 1.2.12
+- Permit Costume and Costumes throughout listing fields and keywords, including seller-supplied terms that are not printed on the artwork.
+- Remove the former Costume-only artwork exception from sanitizers and product-type validation, and align both AI prompt variants.
+
 ## 1.2.11
 - Refine the toolbar to the supplied clean layout with navy field-card headers, orange circular icons, a branded design-preview panel, and a shared blue status strip.
 - Keep the current artwork preview and Undo control together on the left, with responsive layouts and existing generation/settings controls.

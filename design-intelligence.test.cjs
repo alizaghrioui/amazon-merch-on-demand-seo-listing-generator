@@ -61,6 +61,43 @@ test('filename niche is retained only when it matches filename words and has ima
   assert.equal(unsupported.filenameNiche,null);
 });
 
+test('seller niche phrases retain input order and require direct artwork evidence',()=>{
+  const c=runtime(),notes='Biology Teacher, Physics Teacher, Science Teacher, Anatomy Teacher';
+  const data=raw('Proton Quote','Proton symbol and positive-charge wording',{text:'STAY POSITIVE',notes});
+  data.relevantSellerKeywords=[
+    {label:'Science Teacher',confidence:.9,evidence:['visual']},
+    {label:'Anatomy Teacher',confidence:.95,evidence:['seller']},
+    {label:'Physics Teacher',confidence:.85,evidence:['visual']},
+    {label:'Biology Teacher',confidence:.7,evidence:['visual']},
+    {label:'Unlisted Teacher',confidence:.95,evidence:['visual']}
+  ];
+  const result=c.MerchDesignIntelligence.normalize(data,{notes});
+  assert.deepEqual(Array.from(result.relevantSellerKeywords,item=>item.label),['Physics Teacher','Science Teacher']);
+  assert(!result.relevantSellerKeywords.some(item=>item.label==='Anatomy Teacher'));
+});
+
+test('proton lettering restores THINK and selects science subjects without unsupported specialties',()=>{
+  const c=runtime();
+  const notes='Science Teacher, Chemistry Teacher, Biology Teacher, Physics Teacher, STEM Teacher, Middle School Science Teacher, High School Science Teacher, Elementary Science Teacher, Physical Science Teacher, Life Science Teacher, Earth Science Teacher, Environmental Science Teacher, Anatomy Teacher, Science Lab Teacher, General Science Teacher';
+  const data=raw('Proton quote','Atom diagram with a proton and positive charge',{text:'Th I N K LIKE A PROTON, STAY POSITIVE',notes});
+  data.relevantSellerKeywords=[{label:'Physics Teacher',confidence:.91,evidence:['visual']},{label:'Biology Teacher',confidence:.91,evidence:['visual']}];
+  const result=c.MerchDesignIntelligence.normalize(data,{notes});
+  assert.equal(result.visibleText.text,'THINK LIKE A PROTON, STAY POSITIVE');
+  assert.equal(result.visibleText.titleTextEnglish,'THINK LIKE A PROTON, STAY POSITIVE');
+  assert.deepEqual(Array.from(result.relevantSellerKeywords,item=>item.label),['Science Teacher','Chemistry Teacher','Physics Teacher']);
+  const initials=raw('Agent quote','F B I letters on a badge',{text:'F B I'});
+  assert.equal(c.MerchDesignIntelligence.normalize(initials).visibleText.text,'F B I');
+});
+
+test('Main Niche needs an exact seller label and artwork evidence',()=>{
+  const c=runtime(),data=raw('Proton quote','Proton symbol with positive charge wording',{text:'STAY POSITIVE',notes:'Science Teacher'});
+  data.verifiedMainNiche={label:'Science Teacher',confidence:.9,evidence:['visual']};
+  assert.equal(c.MerchDesignIntelligence.normalize(data,{mainNiche:'Science Teacher'}).verifiedMainNiche.label,'Science Teacher');
+  assert.equal(c.MerchDesignIntelligence.normalize(data,{mainNiche:'Biology Teacher'}).verifiedMainNiche,null);
+  data.verifiedMainNiche.evidence=['seller'];
+  assert.equal(c.MerchDesignIntelligence.normalize(data,{mainNiche:'Science Teacher'}).verifiedMainNiche,null);
+});
+
 test('humorous drafts get Funny appended locally without mistaking playful for humor',()=>{
   const c=runtime(true);
   c.MerchProPrompt={cleanListingText:value=>String(value||'').trim()};
