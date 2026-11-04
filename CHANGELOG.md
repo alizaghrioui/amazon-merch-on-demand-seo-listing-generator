@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.33
+- Keep the product text panel beneath the price hidden until the user clicks TM Trademark US.
+
+## 1.2.32
+- Display both seller bullets and the product description beneath the main price, with trademark scan results highlighted in that panel.
+
+## 1.2.31
+- Move the product-page trademark button above Brand and detect the two seller bullets under About this item in newer Amazon layouts.
+
+## 1.2.30
+- Add a TM Trademark US button beside Amazon product titles to scan published product title, brand, bullets, and description with existing exact 1–6 word matching.
+- Show highlighted previews and clickable official USPTO record details on product pages, isolated from Amazon styling.
+
+## 1.2.29
+- Extend the Capitalize Listing button to Title, Brand, both Bullets, and Product Description.
+
+## 1.2.28
+- Add a small Capitalize Title & Brand button that uppercases the first letter of each word and updates the Amazon form fields.
+
 ## 1.2.27
 - Extend exact trademark checking to contiguous phrases of four, five, and six words, preserving short words such as A within phrases and highlighting multiword matches red.
 
