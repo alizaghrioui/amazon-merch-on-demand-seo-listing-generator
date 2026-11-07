@@ -346,7 +346,8 @@ async function generateListingAttempt(request, feedback = "", stored, repairDraf
   const verifiedEvent = MerchProPrompt.copyIssues(verifiedEventCandidate).length ? "" : verifiedEventCandidate;
   const titleStyle = intelligence.styles.find(item=>/^cute$/i.test(item.label))?.label || "";
   const safeTheme=MerchProPrompt.copyIssues(titleAnalysis.titleTheme).length?"":titleAnalysis.titleTheme;
-  const listingTitleCandidate = MerchListingOptimizer.title({niche,phrase:shortPhrase,event:verifiedEvent,theme:safeTheme,style:titleStyle,funny:funnyEvidence,keywords:sellerKeywordPhrases,max:60});
+  const titleEvidence=[intelligence.subject.label,...intelligence.evidence.filter(item=>item.source==="image").map(item=>item.detail),verifiedEvent].join(" ");
+  const listingTitleCandidate = MerchListingOptimizer.title({niche,phrase:shortPhrase,event:verifiedEvent,theme:safeTheme,style:titleStyle,funny:funnyEvidence,keywords:sellerKeywordPhrases,suggested:result.title,evidence:titleEvidence,max:60});
   result.title = listingTitleCandidate;
   titleAnalysis.mainNiche = niche;
   titleAnalysis.mainNicheSource = explicitMainNicheMode ? mainNicheInput ? "seller" : sellerKeywordPhrases.length ? "keywords" : "artwork" : "legacy";

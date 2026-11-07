@@ -4,6 +4,7 @@
   if (globalThis.__merchProScanTimer) clearTimeout(globalThis.__merchProScanTimer);
   document.getElementById(HOST_ID)?.remove();
   if (globalThis.__merchProMessageListener) chrome.runtime.onMessage.removeListener(globalThis.__merchProMessageListener);
+  if (globalThis.__merchProFileChangeListener) document.removeEventListener("change", globalThis.__merchProFileChangeListener, true);
   const FIELD_CUES = {
     title: ["design title", "product title"],
     brand: ["brand"],
@@ -119,6 +120,30 @@
     return { images, canvases };
   }
 
+  function designNameForNiche(fields) {
+    const file = [...document.querySelectorAll('input[type="file"]')].map(input => input.files?.[0]).find(Boolean);
+    const source = file?.name || artworkCandidates(fields).images.map(image => image.alt).find(value => /\.(?:png|jpe?g|webp)$/i.test(value || "")) || "";
+    const name = source.split(/[\\/]/).pop().replace(/\.(?:png|jpe?g|webp)$/i, "")
+      .replace(/[_-]+/g, " ").split(/\s+/)
+      .filter(word => word && !/^(?:vectorized|upscaled|upscale|export|final|copy|\d+x\d+)$/i.test(word)
+        && !/^[a-f0-9]{12,}$/i.test(word) && !/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9]{5,}$/.test(word))
+      .join(" ").trim();
+    if (!name) return "";
+    const fitted = name.slice(0, 60);
+    return name.length > 60 ? fitted.replace(/\s+\S*$/, "").trim() || fitted : name;
+  }
+
+  function syncMainNiche(shadow, fields) {
+    const input = shadow?.querySelector(".main-niche");
+    if (!input) return;
+    const name = designNameForNiche(fields);
+    if (!name || name === input.dataset.autoSource) return;
+    if (input.value.trim() && input.value !== input.dataset.autoValue) return;
+    input.value = name;
+    input.dataset.autoSource = name;
+    input.dataset.autoValue = name;
+  }
+
   async function artworkPayload(fields) {
     const file = [...document.querySelectorAll('input[type="file"]')].map((input) => input.files?.[0]).find(Boolean);
     if (file) return { imageInlineData: await prepareFile(file), sourceName: file.name };
@@ -216,7 +241,8 @@
   }
 
   function makeToolbar(container, fields) {
-    if (document.getElementById(HOST_ID)) return;
+    const existing = document.getElementById(HOST_ID);
+    if (existing) { syncMainNiche(existing.shadowRoot, fields); return; }
     const host = document.createElement("div");
     host.id = HOST_ID;
     host.style.cssText = "display:block;box-sizing:border-box;width:100%;clear:both;position:relative;z-index:5;margin:12px 0 16px;";
@@ -272,7 +298,7 @@
         <div class="layout">
           <aside class="identity">
             <div class="brand-row"><img class="brand-icon" src="${chrome.runtime.getURL("icons/icon-128.png")}" alt="" width="42" height="42"/><img class="wordmark" src="${chrome.runtime.getURL("icons/wordmark.png")}" alt="MerchPilot" width="151" height="27"/></div>
-            <div class="context"><div class="design-context"><div class="preview"><img class="thumb" hidden alt="Current design used as visual reference"/><div class="design-placeholder">${glyph("picture")}<span>Design photo</span></div></div><div class="context-copy"><span class="version">v1.2.33 · AI listing</span><p>Main Niche or first relevant Keyword starts Title</p></div></div><div class="identity-footer"><button class="undo" type="button" hidden aria-label="Undo fill" title="Restore previous listing">${glyph("undo")}<span>Undo fill</span></button></div></div>
+            <div class="context"><div class="design-context"><div class="preview"><img class="thumb" hidden alt="Current design used as visual reference"/><div class="design-placeholder">${glyph("picture")}<span>Design photo</span></div></div><div class="context-copy"><span class="version">v1.2.36 · AI listing</span><p>Main Niche or first relevant Keyword starts Title</p></div></div><div class="identity-footer"><button class="undo" type="button" hidden aria-label="Undo fill" title="Restore previous listing">${glyph("undo")}<span>Undo fill</span></button></div></div>
           </aside>
           <div class="inputs">
             <div class="field"><label for="merch-pro-main-niche"><span class="label-icon">${glyph("tag")}</span><span class="label-text">Main Niche</span></label><div class="input-wrap"><input class="phrase main-niche" id="merch-pro-main-niche" type="text" placeholder="e.g. Science Teacher" maxlength="60"/>${glyph("tag")}</div></div>
@@ -528,6 +554,7 @@
       else break;
     }
     anchor.before(host);
+    syncMainNiche(shadow, fields);
   }
 
   const messageListener = (message, _sender, sendResponse) => {
@@ -557,5 +584,8 @@
   });
   globalThis.__merchProObserver = observer;
   observer.observe(document.documentElement, { childList: true, subtree: true });
+  const fileChangeListener = event => { if (event.target?.matches?.('input[type="file"]')) scan(); };
+  globalThis.__merchProFileChangeListener = fileChangeListener;
+  document.addEventListener("change", fileChangeListener, true);
   scan();
 })();

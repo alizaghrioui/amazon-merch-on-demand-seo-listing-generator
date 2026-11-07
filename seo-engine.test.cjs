@@ -45,12 +45,29 @@ test('all listing prompts force English and translate foreign artwork wording',(
   assert.match(fast,/Translate non-English artwork text/i);
 });
 
+test('both prompt modes use descriptive example style without copying example facts',()=>{
+  const c=runtime();
+  for(const prompt of [c.MerchProPrompt.buildPrompt({}),c.MerchProPrompt.buildFastPrompt({})]){
+    assert.match(prompt,/two or three distinctive visible details/i);
+    assert.match(prompt,/complementary subject or theme phrase/i);
+    assert.match(prompt,/not facts about this image/i);
+    assert.match(prompt,/75–255 characters/i);
+  }
+});
+
 test('optimizer keeps the verified niche first and enforces title and brand caps',()=>{
   const c=runtime();
   const title=c.MerchListingOptimizer.title({niche:'Funny Sarcastic Frog',phrase:"I May Look Calm But In My Head I've Slapped You 3 Times",event:'Thanksgiving',theme:'Autumn',funny:true});
   const brand=c.MerchListingOptimizer.brand({niche:'Funny Sarcastic Frog',subject:'Funny Sarcastic Frog',brand:'Frog Humor Gifts',title});
   assert(title.startsWith('Funny Sarcastic Frog'));assert(title.length<=60);assert(!title.includes("Slapped You 3 Times"));
   assert(brand.length<50);assert(brand.endsWith('Apparel Co.'));assert.equal(brand,brand.toLocaleLowerCase().replace(/\b\p{L}/gu,letter=>letter.toLocaleUpperCase()));assert(brand.toLowerCase().includes('frog'));assert(!/gifts?/i.test(brand));assert(brand.split(/\s+/).some(word=>!title.toLowerCase().includes(word.toLowerCase())));
+});
+
+test('title removes repeated theme words and keeps only evidenced draft descriptors',()=>{
+  const c=runtime();
+  const title=c.MerchListingOptimizer.title({niche:'Festive Shark',theme:'Festive Lights',suggested:'Christmas Shark Lights Ocean Predator Colorful Teeth',evidence:'Shark with colorful lights around its teeth',max:60});
+  assert.equal(title,'Festive Shark Lights Colorful Teeth');
+  assert.doesNotMatch(title,/Christmas|Ocean|Predator|Festive.*Festive/);
 });
 
 test('title keeps a 46–60 character verified niche complete and selects one seller phrase',()=>{

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.36
+- Fill Main Niche automatically from the uploaded design filename, removing file extensions and export noise.
+- Refresh the suggested niche when the artwork changes while preserving manually edited Main Niche text.
+
+## 1.2.35
+- Remove repeated theme words from assembled Titles and keep additional draft descriptors only when verified by visual evidence.
+- Recognize distinctive Christmas string lights and deliberate visual comedy more clearly during artwork analysis, while keeping unsupported occasions and tone out of listings.
+
+## 1.2.34
+- Guide both AI prompt modes with the provided listing examples: niche and occasion in Title, verified visual detail in Bullet 1, and complementary audience context in Bullet 2.
+- Treat example listings as style references only; keep existing length, brand, SEO, and copy restrictions.
+
 ## 1.2.33
 - Keep the product text panel beneath the price hidden until the user clicks TM Trademark US.
 

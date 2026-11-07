@@ -16,11 +16,13 @@
     if(!selected)throw new Error(`The verified niche is too long for a ${max}-character Title. Use a shorter artwork filename or a clearer design image, then generate again.`);
     return selected;
   }
-  function title({niche,phrase,event,theme,style,funny,keywords=[],max=60}){
+  function title({niche,phrase,event,theme,style,funny,keywords=[],suggested="",evidence="",max=60}){
     const base=cleanCandidate(niche);if(!base)return "";
     if(base.length>max)throw new Error(`The verified niche is too long for a ${max}-character Title.`);
     const out=words(base);const add=value=>{
-      const pending=words(cleanCandidate(value));if(!pending.length)return false;
+      const seen=new Set(out.map(key));
+      const pending=words(cleanCandidate(value)).filter(word=>!seen.has(key(word))&&!!key(word));
+      if(!pending.length)return false;
       const existing=out.map(key),needle=pending.map(key);
       if(existing.some((_,index)=>needle.every((word,offset)=>existing[index+offset]===word)))return true;
       if(`${out.join(" ")} ${pending.join(" ")}`.length>max)return false;
@@ -38,6 +40,11 @@
         add(keywordWords.filter(word=>!existing.has(key(word))).join(" "));
     }
     add(theme);add(style);
+    // The model's draft can contain useful visual descriptors that the short
+    // structured theme missed. Admit only words backed by verified evidence.
+    const supported=new Set(words(cleanCandidate(evidence)).map(key));
+    const optional=words(cleanCandidate(suggested)).filter(word=>supported.has(key(word))&&!stop.has(key(word))&&!modifiers.has(key(word)));
+    for(const word of optional.slice(0,5))add(word);
     return out.join(" ");
   }
   const stop=new Set("a an and at by for from in of on the to with wearing featuring holding".split(" "));
